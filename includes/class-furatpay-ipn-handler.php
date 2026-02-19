@@ -1,5 +1,5 @@
 <?php
-
+defined('ABSPATH') || exit;
 
 class FuratPay_IPN_Handler {
 
@@ -69,13 +69,14 @@ class FuratPay_IPN_Handler {
 
             if ('paid' === $invoice_status ) {
                 $order->payment_complete();
-                $order->add_order_note(__('Payment confirmed via FuratPay IPN', 'woo_furatpay'));
+                $order->add_order_note(__('Payment confirmed via FuratPay IPN', 'furatpay'));
             }
 
             return new WP_REST_Response(['success' => true], 200);
         } catch (Exception $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('FuratPay IPN Error: ' . $e->getMessage());
+                $logger = wc_get_logger();
+                $logger->error('FuratPay IPN Error: ' . $e->getMessage(), array('source' => 'furatpay'));
             }
             return new WP_REST_Response(['error' => $e->getMessage()], 400);
         }

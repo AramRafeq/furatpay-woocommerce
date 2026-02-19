@@ -1,4 +1,6 @@
 <?php
+defined('ABSPATH') || exit;
+
 class FuratPay_Gateway extends WC_Payment_Gateway
 {
     /**
@@ -21,8 +23,8 @@ class FuratPay_Gateway extends WC_Payment_Gateway
         // Basic gateway setup
         $this->id = 'furatpay';
         $this->has_fields = true;
-        $this->method_title = __('FuratPay', 'woo_furatpay');
-        $this->method_description = __('Accept payments through FuratPay payment gateway', 'woo_furatpay');
+        $this->method_title = __('FuratPay', 'furatpay');
+        $this->method_description = __('Accept payments through FuratPay payment gateway', 'furatpay');
         $this->supports = array('products');
 
         // Load the settings
@@ -84,42 +86,42 @@ class FuratPay_Gateway extends WC_Payment_Gateway
     {
         $this->form_fields = array(
             'enabled' => array(
-                'title' => __('Enable/Disable', 'woo_furatpay'),
+                'title' => __('Enable/Disable', 'furatpay'),
                 'type' => 'checkbox',
-                'label' => __('Enable FuratPay', 'woo_furatpay'),
+                'label' => __('Enable FuratPay', 'furatpay'),
                 'default' => 'no'
             ),
             'title' => array(
-                'title' => __('Title', 'woo_furatpay'),
+                'title' => __('Title', 'furatpay'),
                 'type' => 'text',
-                'description' => __('Payment method title', 'woo_furatpay'),
-                'default' => __('FuratPay', 'woo_furatpay'),
+                'description' => __('Payment method title', 'furatpay'),
+                'default' => __('FuratPay', 'furatpay'),
                 'desc_tip' => true
             ),
             'description' => array(
-                'title' => __('Description', 'woo_furatpay'),
+                'title' => __('Description', 'furatpay'),
                 'type' => 'textarea',
-                'description' => __('Payment method description', 'woo_furatpay'),
-                'default' => __('Pay via FuratPay', 'woo_furatpay'),
+                'description' => __('Payment method description', 'furatpay'),
+                'default' => __('Pay via FuratPay', 'furatpay'),
                 'desc_tip' => true
             ),
             'api_url' => array(
-                'title' => __('API URL', 'woo_furatpay'),
+                'title' => __('API URL', 'furatpay'),
                 'type' => 'text',
-                'description' => __('FuratPay API endpoint URL', 'woo_furatpay'),
+                'description' => __('FuratPay API endpoint URL', 'furatpay'),
                 'default' => '',
                 'placeholder' => 'https://api.furatpay.com/v1'
             ),
             'api_key' => array(
-                'title' => __('FuratPay API Key', 'woo_furatpay'),
+                'title' => __('FuratPay API Key', 'furatpay'),
                 'type' => 'password',
-                'description' => __('Your FuratPay API key', 'woo_furatpay'),
+                'description' => __('Your FuratPay API key', 'furatpay'),
                 'default' => ''
             ),
             'webhook_secret' => array(
-                'title' => __('Webhook Secret', 'woo_furatpay'),
+                'title' => __('Webhook Secret', 'furatpay'),
                 'type' => 'password',
-                'description' => __('Your FuratPay webhook secret key for verifying webhook signatures', 'woo_furatpay'),
+                'description' => __('Your FuratPay webhook secret key for verifying webhook signatures', 'furatpay'),
                 'default' => '',
                 'desc_tip' => true
             )
@@ -176,38 +178,42 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             echo '<div class="furatpay-payment-form">';
             
             if ($description = $this->get_description()) {
-                echo wpautop(wptexturize($description));
+                echo wp_kses_post(wpautop(wptexturize($description)));
             }
 
             if (empty($this->api_url) || empty($this->api_key)) {
-                throw new Exception(__('Payment method is not properly configured.', 'woo_furatpay'));
+                throw new Exception(__('Payment method is not properly configured.', 'furatpay'));
             }
 
             $payment_services = FuratPay_API_Handler::get_payment_services($this->api_url, $this->api_key);
             
             if (empty($payment_services)) {
-                throw new Exception(__('No payment methods available.', 'woo_furatpay'));
+                throw new Exception(__('No payment methods available.', 'furatpay'));
             }
 
             // Filter active services
             $active_services = $payment_services;
 
             if (empty($active_services)) {
-                throw new Exception(__('No active payment methods available.', 'woo_furatpay'));
+                throw new Exception(__('No active payment methods available.', 'furatpay'));
             }
 
             echo '<div class="furatpay-services-wrapper">';
-            echo '<h4>' . __('Select a payment service:', 'woo_furatpay') . '</h4>';
+            echo '<h4>' . esc_html__('Select a payment service:', 'furatpay') . '</h4>';
             echo '<ul class="furatpay-method-list">';
             
             foreach ($active_services as $service) {
                 echo '<li class="furatpay-method-item">';
                 echo '<label>';
-                echo '<input 
-                    type="radio" 
-                    name="furatpay_service" 
+                $is_checked = false;
+                if (isset($_POST['furatpay_service'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                    $is_checked = (int) $_POST['furatpay_service'] === $service['id']; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+                }
+                echo '<input
+                    type="radio"
+                    name="furatpay_service"
                     value="' . esc_attr($service['id']) . '"
-                    ' . checked(isset($_POST['furatpay_service']) && $_POST['furatpay_service'] == $service['id'], true, false) . '
+                    ' . checked($is_checked, true, false) . '
                     required="required"
                     class="furatpay-service-radio"
                 />';
@@ -272,18 +278,18 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             'nonce' => wp_create_nonce('furatpay-nonce'),
             'title' => $this->title,
             'description' => $this->description,
-            'icon' => apply_filters('woocommerce_furatpay_icon', ''),
+            'icon' => apply_filters('furatpay_payment_icon', ''),
             'supports' => $this->supports,
             'debug' => defined('WP_DEBUG') && WP_DEBUG,
             'i18n' => array(
-                'processing' => __('Processing payment, please wait...', 'woo_furatpay'),
-                'redirect' => __('Redirecting to payment service...', 'woo_furatpay'),
-                'waiting' => __('Waiting for Payment', 'woo_furatpay'),
-                'complete_payment' => __('Payment window has been opened in a new tab. Please complete your payment there. This page will update automatically once payment is confirmed.', 'woo_furatpay'),
-                'selectService' => __('Please select a payment service.', 'woo_furatpay'),
-                'noServices' => __('No payment services available.', 'woo_furatpay'),
-                'popupBlocked' => __('Popup was blocked. Please click the button below to open the payment window:', 'woo_furatpay'),
-                'openPayment' => __('Open Payment Window', 'woo_furatpay')
+                'processing' => __('Processing payment, please wait...', 'furatpay'),
+                'redirect' => __('Redirecting to payment service...', 'furatpay'),
+                'waiting' => __('Waiting for Payment', 'furatpay'),
+                'complete_payment' => __('Payment window has been opened in a new tab. Please complete your payment there. This page will update automatically once payment is confirmed.', 'furatpay'),
+                'selectService' => __('Please select a payment service.', 'furatpay'),
+                'noServices' => __('No payment services available.', 'furatpay'),
+                'popupBlocked' => __('Popup was blocked. Please click the button below to open the payment window:', 'furatpay'),
+                'openPayment' => __('Open Payment Window', 'furatpay')
             )
         );
 
@@ -335,23 +341,52 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             
             $order = wc_get_order($order_id);
             if (!$order) {
-                throw new Exception(__('Order not found', 'woo_furatpay'));
+                throw new Exception(__('Order not found', 'furatpay'));
             }
 
             // Get selected payment service
-            $payment_service_id = isset($_POST['furatpay_service']) ? intval($_POST['furatpay_service']) : 0;
-            
-            // For blocks checkout, check the payment data
-            if (!$payment_service_id && isset($_POST['payment_method_data'])) {
-                $payment_data = json_decode($_POST['payment_method_data'], true);
-                if (isset($payment_data['furatpay_service'])) {
+            $payment_service_id = 0;
+
+            // Debug log
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                $logger = wc_get_logger();
+                $logger->debug('Process payment - POST data: ' . print_r($_POST, true), array('source' => 'furatpay'));
+            }
+
+            // For classic checkout
+            if (isset($_POST['furatpay_service'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                $payment_service_id = intval($_POST['furatpay_service']); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+            }
+
+            // For blocks checkout - check multiple possible locations
+            if (!$payment_service_id) {
+                // Check if payment_data is available (WooCommerce Blocks Store API)
+                $payment_data = null;
+
+                // Try to get from order meta (set by blocks)
+                $payment_service_id = intval($order->get_meta('_furatpay_service_id'));
+
+                // If not in meta, try POST data variations
+                if (!$payment_service_id && isset($_POST['payment_data'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                    $payment_data = is_array($_POST['payment_data']) ? $_POST['payment_data'] : json_decode(wp_unslash($_POST['payment_data']), true); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput
+                }
+
+                if (!$payment_service_id && isset($_POST['payment_method_data'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                    $payment_data = json_decode(wp_unslash($_POST['payment_method_data']), true); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+                }
+
+                if ($payment_data && isset($payment_data['furatpay_service'])) {
                     $payment_service_id = intval($payment_data['furatpay_service']);
                 }
             }
 
             if (!$payment_service_id) {
-                throw new Exception(__('Please select a payment service', 'woo_furatpay'));
+                throw new Exception(__('Please select a payment service', 'furatpay'));
             }
+
+            // Store service ID in order meta for reference
+            $order->update_meta_data('_furatpay_service_id', $payment_service_id);
+            $order->save();
 
             // Create invoice - always use customer data from order
             $invoice_id = FuratPay_API_Handler::create_invoice(
@@ -375,7 +410,7 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             $order->update_meta_data('_furatpay_invoice_id', $invoice_id);
             
             // Update order status to pending
-            $order->update_status('pending', __('Awaiting FuratPay payment confirmation', 'woo_furatpay'));
+            $order->update_status('pending', __('Awaiting FuratPay payment confirmation', 'furatpay'));
             $order->save();
 
             // Empty cart
@@ -416,21 +451,21 @@ class FuratPay_Gateway extends WC_Payment_Gateway
      * Handle the payment page
      */
     public function handle_payment_page() {
-        if (!isset($_GET['order_id']) || !isset($_GET['key'])) {
-            wp_die(__('Invalid payment request', 'woo_furatpay'));
+        if (!isset($_GET['order_id']) || !isset($_GET['key'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+            wp_die(esc_html__('Invalid payment request', 'furatpay'));
         }
 
-        $order_id = wc_clean($_GET['order_id']);
-        $order_key = wc_clean($_GET['key']);
+        $order_id = isset($_GET['order_id']) ? absint($_GET['order_id']) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $order_key = isset($_GET['key']) ? wc_clean(wp_unslash($_GET['key'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         $order = wc_get_order($order_id);
 
         if (!$order || $order->get_order_key() !== $order_key) {
-            wp_die(__('Invalid order', 'woo_furatpay'));
+            wp_die(esc_html__('Invalid order', 'furatpay'));
         }
 
         $payment_url = $order->get_meta('_furatpay_payment_url');
         if (!$payment_url) {
-            wp_die(__('Payment URL not found', 'woo_furatpay'));
+            wp_die(esc_html__('Payment URL not found', 'furatpay'));
         }
 
         // Enqueue required scripts
@@ -442,8 +477,8 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('furatpay-nonce'),
             'i18n' => array(
-                'popupBlocked' => __('Popup was blocked. Please try again.', 'woo_furatpay'),
-                'paymentFailed' => __('Payment failed. Please try again.', 'woo_furatpay')
+                'popupBlocked' => __('Popup was blocked. Please try again.', 'furatpay'),
+                'paymentFailed' => __('Payment failed. Please try again.', 'furatpay')
             )
         );
         wp_localize_script('jquery', 'furatpayData', $script_data);
@@ -473,19 +508,19 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             // Get and validate order_id
             $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
             if (!$order_id) {
-                throw new Exception(__('Invalid order ID', 'woo_furatpay'));
+                throw new Exception(__('Invalid order ID', 'furatpay'));
             }
 
             // Get order
             $order = wc_get_order($order_id);
             if (!$order) {
-                throw new Exception(__('Order not found', 'woo_furatpay'));
+                throw new Exception(__('Order not found', 'furatpay'));
             }
 
             // Get invoice ID
             $invoice_id = $order->get_meta('_furatpay_invoice_id');
             if (!$invoice_id) {
-                throw new Exception(__('Invoice ID not found', 'woo_furatpay'));
+                throw new Exception(__('Invoice ID not found', 'furatpay'));
             }
 
             // Check payment status with FuratPay API
@@ -506,10 +541,10 @@ class FuratPay_Gateway extends WC_Payment_Gateway
                     break;
 
                 case 'failed':
-                    $order->update_status('failed', __('Payment failed or was declined', 'woo_furatpay'));
+                    $order->update_status('failed', __('Payment failed or was declined', 'furatpay'));
                     wp_send_json_success([
                         'status' => 'failed',
-                        'message' => __('Payment failed or was declined. Please try again.', 'woo_furatpay')
+                        'message' => __('Payment failed or was declined. Please try again.', 'furatpay')
                     ]);
                     break;
 
@@ -536,22 +571,23 @@ class FuratPay_Gateway extends WC_Payment_Gateway
         if (function_exists('wc_current_theme_is_fse_theme') && wc_current_theme_is_fse_theme()) {
             return true;
         }
-        
-        if (!isset($_POST['furatpay_service']) || empty($_POST['furatpay_service'])) {
-            wc_add_notice(__('Please select a payment service.', 'woo_furatpay'), 'error');
+
+        if (!isset($_POST['furatpay_service']) || empty($_POST['furatpay_service'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+            wc_add_notice(__('Please select a payment service.', 'furatpay'), 'error');
             return false;
         }
 
         try {
             $payment_services = FuratPay_API_Handler::get_payment_services($this->api_url, $this->api_key);
             $service_ids = array_column($payment_services, 'id');
-            
-            if (!in_array($_POST['furatpay_service'], $service_ids)) {
-                wc_add_notice(__('Invalid payment service selected.', 'woo_furatpay'), 'error');
+
+            $selected_service = isset($_POST['furatpay_service']) ? intval($_POST['furatpay_service']) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+            if (!in_array($selected_service, $service_ids, true)) {
+                wc_add_notice(__('Invalid payment service selected.', 'furatpay'), 'error');
                 return false;
             }
         } catch (Exception $e) {
-            wc_add_notice(__('Unable to validate payment service. Please try again.', 'woo_furatpay'), 'error');
+            wc_add_notice(__('Unable to validate payment service. Please try again.', 'furatpay'), 'error');
             return false;
         }
 
@@ -565,12 +601,31 @@ class FuratPay_Gateway extends WC_Payment_Gateway
         check_ajax_referer('furatpay-nonce', 'nonce');
 
         try {
+            // Debug log
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                $logger = wc_get_logger();
+                $logger->debug('AJAX: Getting payment services. API URL: ' . $this->api_url, array('source' => 'furatpay'));
+            }
+
             $services = FuratPay_API_Handler::get_payment_services($this->api_url, $this->api_key);
+
+            // Debug log
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                $logger = wc_get_logger();
+                $logger->debug('AJAX: Found ' . count($services) . ' payment services', array('source' => 'furatpay'));
+            }
+
             wp_send_json_success($services);
         } catch (Exception $e) {
+            // Log the error
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                $logger = wc_get_logger();
+                $logger->error('AJAX Error: ' . $e->getMessage(), array('source' => 'furatpay'));
+            }
+
             wp_send_json_error(array(
                 'message' => $e->getMessage()
-            ));
+            ), 400);
         }
     }
 
@@ -579,7 +634,8 @@ class FuratPay_Gateway extends WC_Payment_Gateway
 
         try {
             // Get form data
-            parse_str($_POST['form_data'], $form_data);
+            $form_data_raw = isset($_POST['form_data']) ? wp_unslash($_POST['form_data']) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+            parse_str($form_data_raw, $form_data);
             
             // Create temporary order data
             $order_data = array(
@@ -589,14 +645,15 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             
             // Note: This ajax method appears to be legacy/unused code
             // It passes array instead of WC_Order which won't work with current implementation
-            throw new Exception(__('This payment method is not available. Please use standard checkout.', 'woo_furatpay'));
+            throw new Exception(__('This payment method is not available. Please use standard checkout.', 'furatpay'));
 
             // Get payment URL
+            $payment_service = isset($_POST['payment_service']) ? intval($_POST['payment_service']) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
             $payment_url = FuratPay_API_Handler::create_payment(
                 $this->api_url,
                 $this->api_key,
                 $invoice_id,
-                intval($_POST['payment_service'])
+                $payment_service
             );
 
             // Store invoice ID in session for later use when webhook arrives

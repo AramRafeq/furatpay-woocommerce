@@ -6,7 +6,7 @@ class FuratPay_API_Handler
     {
 
         if (empty($api_url) || empty($token)) {
-            throw new Exception(__('Payment gateway is not properly configured', 'woo_furatpay'));
+            throw new Exception(esc_html__('Payment gateway is not properly configured', 'furatpay'));
         }
 
         $api_url = rtrim($api_url, '/');
@@ -27,7 +27,8 @@ class FuratPay_API_Handler
             $error_message = $response->get_error_message();
             if (defined('WP_DEBUG') && WP_DEBUG) {
                 }
-            throw new Exception(__('Failed to retrieve payment services: ' . $error_message, 'woo_furatpay'));
+            /* translators: %s: error message from API */
+            throw new Exception(sprintf(esc_html__('Failed to retrieve payment services: %s', 'furatpay'), $error_message));
         }
 
         $response_code = wp_remote_retrieve_response_code($response);
@@ -36,11 +37,11 @@ class FuratPay_API_Handler
 
         $body_array = json_decode($body, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception(__('Invalid API response format', 'woo_furatpay'));
+            throw new Exception(esc_html__('Invalid API response format', 'furatpay'));
         }
 
         if (!isset($body_array['data']) || !is_array($body_array['data'])) {
-            throw new Exception(__('Invalid payment services response', 'woo_furatpay'));
+            throw new Exception(esc_html__('Invalid payment services response', 'furatpay'));
         }
 
         $services = $body_array['data'];
@@ -51,7 +52,7 @@ class FuratPay_API_Handler
     public static function create_invoice($api_url, $token, WC_Order $order, $customer_id = null)
     {
         if (empty($api_url) || empty($token)) {
-            throw new Exception(__('Payment gateway is not properly configured', 'woo_furatpay'));
+            throw new Exception(esc_html__('Payment gateway is not properly configured', 'furatpay'));
         }
 
         $order_total = $order->get_total();
@@ -124,7 +125,7 @@ class FuratPay_API_Handler
         );
 
         if (is_wp_error($response)) {
-            throw new Exception(__('Invoice creation failed', 'woo_furatpay'));
+            throw new Exception(esc_html__('Invoice creation failed', 'furatpay'));
         }
 
         $response_code = wp_remote_retrieve_response_code($response);
@@ -133,16 +134,18 @@ class FuratPay_API_Handler
         if ($response_code !== 200 && $response_code !== 201) {
             $error_data = json_decode($body, true);
             $error_message = isset($error_data['message']) ? $error_data['message'] : 'Unknown error';
-            throw new Exception(__('Invoice creation failed: ', 'woo_furatpay') . $error_message);
+            /* translators: %s: error message from API */
+            throw new Exception(sprintf(esc_html__('Invoice creation failed: %s', 'furatpay'), $error_message));
         }
 
         $body_array = json_decode($body, true);
         if (!isset($body_array['id'])) {
-            throw new Exception(__('Invalid invoice response', 'woo_furatpay'));
+            throw new Exception(esc_html__('Invalid invoice response', 'furatpay'));
         }
 
         $order->update_meta_data('_furatpay_invoice_id', $body_array['id']);
-        $order->add_order_note(__('FuratPay Invoice Id: '. $body_array['id'], 'woo_furatpay'));
+        /* translators: %s: FuratPay invoice ID */
+        $order->add_order_note(sprintf(esc_html__('FuratPay Invoice Id: %s', 'furatpay'), $body_array['id']));
         $order->save();
 
         return $body_array['id'];
@@ -171,7 +174,7 @@ class FuratPay_API_Handler
         );
 
         if (is_wp_error($response)) {
-            throw new Exception(__('Payment initiation failed', 'woo_furatpay'));
+            throw new Exception(esc_html__('Payment initiation failed', 'furatpay'));
         }
 
         $response_code = wp_remote_retrieve_response_code($response);
@@ -180,7 +183,8 @@ class FuratPay_API_Handler
         if ($response_code !== 200 && $response_code !== 201) {
             $error_data = json_decode($body, true);
             $error_message = isset($error_data['message']) ? $error_data['message'] : 'Unknown error';
-            throw new Exception(__('Payment creation failed: ', 'woo_furatpay') . $error_message);
+            /* translators: %s: error message from API */
+            throw new Exception(sprintf(esc_html__('Payment creation failed: %s', 'furatpay'), $error_message));
         }
 
         $body_array = json_decode($body, true);
@@ -241,7 +245,7 @@ class FuratPay_API_Handler
         }
 
         if (!$payment_url) {
-            throw new Exception(__('Invalid payment response - No payment URL found', 'woo_furatpay'));
+            throw new Exception(esc_html__('Invalid payment response - No payment URL found', 'furatpay'));
         }
 
         return $payment_url;
@@ -264,7 +268,7 @@ class FuratPay_API_Handler
         );
 
         if (is_wp_error($response)) {
-            throw new Exception(__('Failed to check payment status', 'woo_furatpay'));
+            throw new Exception(esc_html__('Failed to check payment status', 'furatpay'));
         }
 
         $response_code = wp_remote_retrieve_response_code($response);
@@ -273,12 +277,13 @@ class FuratPay_API_Handler
         if ($response_code !== 200) {
             $error_data = json_decode($body, true);
             $error_message = isset($error_data['message']) ? $error_data['message'] : 'Unknown error';
-            throw new Exception(__('Failed to check payment status: ', 'woo_furatpay') . $error_message);
+            /* translators: %s: error message from API */
+            throw new Exception(sprintf(esc_html__('Failed to check payment status: %s', 'furatpay'), $error_message));
         }
 
         $body_array = json_decode($body, true);
         if (!isset($body_array['status'])) {
-            throw new Exception(__('Invalid status response', 'woo_furatpay'));
+            throw new Exception(esc_html__('Invalid status response', 'furatpay'));
         }
 
         // Map FuratPay status to our status
