@@ -1,5 +1,13 @@
+<?php
+/**
+ * FuratPay payment methods template
+ */
+
+defined('ABSPATH') || exit;
+
+?>
 <div class="furatpay-payment-methods" id="furatpay-payment-form">
-    <?php 
+    <?php
     // Filter out disabled payment methods
     $active_services = array_filter($payment_services, function($service) {
         return isset($service['status']) && $service['status'] === 'active';

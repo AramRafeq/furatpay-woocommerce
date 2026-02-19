@@ -21,31 +21,37 @@ class FuratPay_IPN_Handler {
         register_rest_route('furatpay/v1', '/ipn', [
             'methods'  => 'POST',
             'callback' => [$this, 'handle_ipn'],
-            'permission_callback' => '__return_true', // Allow public access
+            'permission_callback' => function($request) {
+                // Only allow POST requests (webhook signature will be verified in handle_ipn)
+                return $request->get_method() === 'POST';
+            },
         ]);
     }
 
    
    
     public function handle_ipn(WP_REST_Request $request) {
-
-        error_log('FuratPay IPN received');
-
         try {
             $payload = $request->get_json_params();
-           
-           
+
             if (!$payload) {
                 throw new Exception('Invalid JSON received');
             }
 
             $headers = $request->get_headers();
-            $timestamp = isset($headers['x_timestamp']) ? $headers['x_timestamp'][0]:null;
-            $payloadSignature =  isset( $headers['x_signature']) ? $headers['x_signature'][0] :null;
-            $signaturePayload = $payload['data']['id'].$payload['data']['code'].$payload['data']['order_number'].$timestamp;
-            $calculatedSignature = hash_hmac('sha256', trim($signaturePayload), $this->webhook_secret,false);
+            $timestamp = isset($headers['x_timestamp']) ? $headers['x_timestamp'][0] : null;
+            $payloadSignature = isset($headers['x_signature']) ? $headers['x_signature'][0] : null;
 
-            if($calculatedSignature!==$payloadSignature){
+            // Validate timestamp to prevent replay attacks (allow 5 minutes window)
+            if (!$timestamp || abs(time() - intval($timestamp)) > 300) {
+                throw new Exception('Invalid or expired timestamp');
+            }
+
+            // Verify HMAC signature
+            $signaturePayload = $payload['data']['id'] . $payload['data']['code'] . $payload['data']['order_number'] . $timestamp;
+            $calculatedSignature = hash_hmac('sha256', trim($signaturePayload), $this->webhook_secret, false);
+
+            if ($calculatedSignature !== $payloadSignature) {
                 throw new Exception('Invalid payload signature or webhook secret');
             }
 
@@ -59,10 +65,7 @@ class FuratPay_IPN_Handler {
             }
 
             $order = $this->get_order_by_id($payload['data']['order_number']);
-            error_log('ORDER: ' . $order);
             $invoice_status = $this->get_invoice_status($payload['data']['id']);
-
-            error_log("Invoice Status: $invoice_status");
 
             if ('paid' === $invoice_status ) {
                 $order->payment_complete();
@@ -71,7 +74,9 @@ class FuratPay_IPN_Handler {
 
             return new WP_REST_Response(['success' => true], 200);
         } catch (Exception $e) {
-            error_log('FuratPay IPN Error: ' . $e->getMessage());
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('FuratPay IPN Error: ' . $e->getMessage());
+            }
             return new WP_REST_Response(['error' => $e->getMessage()], 400);
         }
     }
@@ -82,7 +87,7 @@ class FuratPay_IPN_Handler {
             $this->api_url . '/invoice/' . $invoice_id,
             [
                 'headers' => [
-                    'X-API-key' => $this->api_key,
+                    'x-api-key' => $this->api_key,
                     'Content-Type' => 'application/json'
                 ]
             ]

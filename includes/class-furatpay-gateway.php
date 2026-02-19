@@ -116,12 +116,6 @@ class FuratPay_Gateway extends WC_Payment_Gateway
                 'description' => __('Your FuratPay API key', 'woo_furatpay'),
                 'default' => ''
             ),
-            'customer_id' => array(
-                'title' => __('FuratPay Customer ID', 'woo_furatpay'),
-                'type' => 'text',
-                'description' => __('Your FuratPay customer ID', 'woo_furatpay'),
-                'default' => ''
-            ),
             'webhook_secret' => array(
                 'title' => __('Webhook Secret', 'woo_furatpay'),
                 'type' => 'password',
@@ -152,25 +146,19 @@ class FuratPay_Gateway extends WC_Payment_Gateway
     }
 
     public function debug_before_customer_details() {
-        error_log('FuratPay: Before customer details section');
     }
 
     public function debug_after_customer_details() {
-        error_log('FuratPay: After customer details section');
     }
 
     public function debug_before_order_review() {
-        error_log('FuratPay: Before order review section');
     }
 
     public function debug_after_order_review() {
-        error_log('FuratPay: After order review section');
     }
 
     public function debug_payment_methods_list($list, $order_id = null) {
-        error_log('FuratPay: Payment methods list being generated');
         $gateway_ids = array_keys($list);
-        error_log('Available gateway IDs: ' . implode(', ', $gateway_ids));
         return $list;
     }
 
@@ -259,14 +247,9 @@ class FuratPay_Gateway extends WC_Payment_Gateway
 
     public function enqueue_checkout_scripts()
     {
-        error_log('FuratPay: Attempting to enqueue checkout scripts');
-        
         if (!is_checkout()) {
-            error_log('FuratPay: Not checkout page, skipping script enqueue');
             return;
         }
-
-        error_log('FuratPay: Enqueuing checkout scripts for checkout page');
 
         // Force cache bust with current timestamp
         $version = time();
@@ -275,12 +258,9 @@ class FuratPay_Gateway extends WC_Payment_Gateway
         wp_enqueue_script('jquery');
 
         // Enqueue checkout script with explicit jQuery dependency
-        $checkout_script_url = FURATPAY_PLUGIN_URL . 'assets/js/checkout.js';
-        error_log('FuratPay: Loading checkout.js from: ' . $checkout_script_url);
-        
         wp_enqueue_script(
             'furatpay-checkout',
-            $checkout_script_url,
+            FURATPAY_PLUGIN_URL . 'assets/js/checkout.js',
             array('jquery', 'wc-checkout'),
             $version,
             true
@@ -294,7 +274,7 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             'description' => $this->description,
             'icon' => apply_filters('woocommerce_furatpay_icon', ''),
             'supports' => $this->supports,
-            'debug' => true,
+            'debug' => defined('WP_DEBUG') && WP_DEBUG,
             'i18n' => array(
                 'processing' => __('Processing payment, please wait...', 'woo_furatpay'),
                 'redirect' => __('Redirecting to payment service...', 'woo_furatpay'),
@@ -307,12 +287,10 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             )
         );
 
-        error_log('FuratPay: Localizing script data: ' . print_r($script_data, true));
         wp_localize_script('furatpay-checkout', 'furatpayData', $script_data);
 
         // Only load blocks script if using block checkout
         if (function_exists('wc_current_theme_is_fse_theme') && wc_current_theme_is_fse_theme()) {
-            error_log('FuratPay: Loading blocks script for FSE theme');
             wp_enqueue_script(
                 'furatpay-blocks',
                 FURATPAY_PLUGIN_URL . 'build/blocks.js',
@@ -323,15 +301,12 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             wp_localize_script('furatpay-blocks', 'furatpayData', $script_data);
         }
 
-        error_log('FuratPay: Loading checkout CSS');
         wp_enqueue_style(
             'furatpay-checkout',
             FURATPAY_PLUGIN_URL . 'assets/css/checkout.css',
             array(),
             $version
         );
-
-        error_log('FuratPay: Script enqueuing completed');
     }
 
     /**
@@ -342,18 +317,10 @@ class FuratPay_Gateway extends WC_Payment_Gateway
     public function is_available()
     {
         $parent_available = parent::is_available();
-        error_log('FuratPay parent is_available: ' . ($parent_available ? 'true' : 'false'));
-        
         $has_api_url = !empty($this->api_url);
-        error_log('FuratPay has API URL: ' . ($has_api_url ? 'true' : 'false'));
-        
         $has_api_key = !empty($this->api_key);
-        error_log('FuratPay has API key: ' . ($has_api_key ? 'true' : 'false'));
-        
-        $is_available = $parent_available && $has_api_url && $has_api_key;
-        error_log('FuratPay final is_available: ' . ($is_available ? 'true' : 'false'));
-        
-        return $is_available;
+
+        return $parent_available && $has_api_url && $has_api_key;
     }
 
     /**
@@ -365,7 +332,6 @@ class FuratPay_Gateway extends WC_Payment_Gateway
     public function process_payment($order_id)
     {
         try {
-            error_log('FuratPay: Processing payment for order ' . $order_id);
             
             $order = wc_get_order($order_id);
             if (!$order) {
@@ -377,7 +343,7 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             
             // For blocks checkout, check the payment data
             if (!$payment_service_id && isset($_POST['payment_method_data'])) {
-                $payment_data = json_decode(stripslashes($_POST['payment_method_data']), true);
+                $payment_data = json_decode($_POST['payment_method_data'], true);
                 if (isset($payment_data['furatpay_service'])) {
                     $payment_service_id = intval($payment_data['furatpay_service']);
                 }
@@ -387,18 +353,12 @@ class FuratPay_Gateway extends WC_Payment_Gateway
                 throw new Exception(__('Please select a payment service', 'woo_furatpay'));
             }
 
-            // Get customer ID from settings
-            $customer_id = $this->get_option('customer_id');
-            if (empty($customer_id)) {
-                throw new Exception(__('FuratPay customer ID is not configured', 'woo_furatpay'));
-            }
-
-            // Create invoice
+            // Create invoice - always use customer data from order
             $invoice_id = FuratPay_API_Handler::create_invoice(
                 $this->api_url,
                 $this->api_key,
                 $order,
-                $customer_id
+                null
             );
 
             // Create payment URL
@@ -444,7 +404,6 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             );
 
         } catch (Exception $e) {
-            error_log('FuratPay Error: ' . $e->getMessage());
             wc_add_notice($e->getMessage(), 'error');
             return array(
                 'result' => 'failure',
@@ -536,7 +495,6 @@ class FuratPay_Gateway extends WC_Payment_Gateway
                 $invoice_id
             );
 
-            error_log('FuratPay: Payment status check for order ' . $order_id . ' returned: ' . $status);
 
             switch ($status) {
                 case 'paid':
@@ -563,7 +521,6 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             }
 
         } catch (Exception $e) {
-            error_log('FuratPay Error: ' . $e->getMessage());
             wp_send_json_error([
                 'message' => $e->getMessage()
             ]);
@@ -575,18 +532,12 @@ class FuratPay_Gateway extends WC_Payment_Gateway
 
     public function validate_fields()
     {
-        error_log('FuratPay: Validating fields');
-        error_log('POST data: ' . print_r($_POST, true));
-        error_log('REQUEST data: ' . print_r($_REQUEST, true));
-        
         // For block checkout, validation happens in process_payment
         if (function_exists('wc_current_theme_is_fse_theme') && wc_current_theme_is_fse_theme()) {
-            error_log('FuratPay: Block checkout detected, skipping validation');
             return true;
         }
         
         if (!isset($_POST['furatpay_service']) || empty($_POST['furatpay_service'])) {
-            error_log('FuratPay: No service selected');
             wc_add_notice(__('Please select a payment service.', 'woo_furatpay'), 'error');
             return false;
         }
@@ -596,17 +547,14 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             $service_ids = array_column($payment_services, 'id');
             
             if (!in_array($_POST['furatpay_service'], $service_ids)) {
-                error_log('FuratPay: Invalid service selected');
                 wc_add_notice(__('Invalid payment service selected.', 'woo_furatpay'), 'error');
                 return false;
             }
         } catch (Exception $e) {
-            error_log('FuratPay Validation Error: ' . $e->getMessage());
             wc_add_notice(__('Unable to validate payment service. Please try again.', 'woo_furatpay'), 'error');
             return false;
         }
 
-        error_log('FuratPay: Fields validated successfully');
         return true;
     }
 
@@ -614,14 +562,12 @@ class FuratPay_Gateway extends WC_Payment_Gateway
      * AJAX endpoint to get payment services
      */
     public function ajax_get_payment_services() {
-        error_log('FuratPay: AJAX get payment services called');
         check_ajax_referer('furatpay-nonce', 'nonce');
 
         try {
             $services = FuratPay_API_Handler::get_payment_services($this->api_url, $this->api_key);
             wp_send_json_success($services);
         } catch (Exception $e) {
-            error_log('FuratPay AJAX Error: ' . $e->getMessage());
             wp_send_json_error(array(
                 'message' => $e->getMessage()
             ));
@@ -641,13 +587,9 @@ class FuratPay_Gateway extends WC_Payment_Gateway
                 'currency' => get_woocommerce_currency(),
             );
             
-            // Create invoice
-            $invoice_id = FuratPay_API_Handler::create_invoice(
-                $this->api_url,
-                $this->api_key,
-                $order_data,
-                $this->get_option('customer_id')
-            );
+            // Note: This ajax method appears to be legacy/unused code
+            // It passes array instead of WC_Order which won't work with current implementation
+            throw new Exception(__('This payment method is not available. Please use standard checkout.', 'woo_furatpay'));
 
             // Get payment URL
             $payment_url = FuratPay_API_Handler::create_payment(

@@ -24,46 +24,13 @@ register_activation_hook(__FILE__, 'furatpay_activate');
 register_deactivation_hook(__FILE__, 'furatpay_deactivate');
 register_activation_hook(__FILE__, 'furatpay_activation_check');
 
-// Disable checkout blocks to ensure traditional payment gateway works
-add_filter('woocommerce_is_checkout_block_editor_enabled', '__return_false');
-add_filter('woocommerce_is_checkout_block_enabled', '__return_false');
-
-// Add debug filter for payment gateways
-add_filter('woocommerce_payment_gateways', function($gateways) {
-    return $gateways;
-}, 9);
-
-// Add template debugging
-add_filter('woocommerce_locate_template', function($template, $template_name, $template_path) {
-    if (strpos($template_name, 'payment') !== false || strpos($template_name, 'checkout') !== false) {
-        error_log('WooCommerce template loading: ' . $template_name . ' -> ' . $template);
-    }
-    return $template;
-}, 10, 3);
-
-// Add payment form debugging
-add_action('woocommerce_checkout_payment', function() {
-    $available_gateways = WC()->payment_gateways->get_available_payment_gateways();
-}, 9);
-
-add_action('woocommerce_checkout_payment', function() {
-    error_log('##### Payment form rendering END #####');
-}, 11);
-
-// Debug gateway registration
-add_action('woocommerce_payment_gateways_settings', function($settings) {
-    error_log('Payment gateway settings: ' . print_r($settings, true));
-    return $settings;
-});
-
-add_action('woocommerce_after_register_post_type', function() {
-    WC()->payment_gateways()->payment_gateways();
-    // error_log('WooCommerce post types registered. Payment gateways: ' . print_r(WC()->payment_gateways()->payment_gateways(), true));
-});
+// Allow both classic and block checkout - blocks integration is available
 
 function furatpay_activate() {
-    error_log('FuratPay: Plugin activated');
-    
+    if (defined('WP_DEBUG') && WP_DEBUG) {
+        error_log('FuratPay: Plugin activated');
+    }
+
     // Clear transients on activation
     delete_transient('wc_payment_methods');
     WC_Cache_Helper::get_transient_version('shipping', true);
@@ -71,7 +38,9 @@ function furatpay_activate() {
 }
 
 function furatpay_deactivate() {
-    error_log('FuratPay: Plugin deactivated');
+    if (defined('WP_DEBUG') && WP_DEBUG) {
+        error_log('FuratPay: Plugin deactivated');
+    }
 }
 
 function furatpay_activation_check() {
@@ -91,45 +60,30 @@ add_action('plugins_loaded', 'furatpay_init', 0);
 function furatpay_init() {
     // Check if WooCommerce is active
     if (!class_exists('WC_Payment_Gateway')) {
-        error_log('FuratPay: WooCommerce not active');
         return;
     }
-    
+
     // Load required files
     require_once FURATPAY_PLUGIN_PATH . 'includes/class-furatpay-api-handler.php';
     require_once FURATPAY_PLUGIN_PATH . 'includes/class-furatpay-ipn-handler.php';
     require_once FURATPAY_PLUGIN_PATH . 'includes/class-furatpay-gateway.php';
 
-    
     // Add the gateway to WooCommerce
     add_filter('woocommerce_payment_gateways', 'furatpay_add_gateway');
-    
+
     // Load plugin textdomain
     load_plugin_textdomain('woo_furatpay', false, dirname(plugin_basename(__FILE__)) . '/languages');
-    
 }
 
 function furatpay_add_gateway($gateways) {
     if (!class_exists('FuratPay_Gateway')) {
-        error_log('FuratPay: Gateway class not found!');
         return $gateways;
     }
-    
-    // Check if gateway is already registered
-    foreach ($gateways as $gateway) {
-        if (is_string($gateway) && $gateway === 'FuratPay_Gateway') {
-            error_log('FuratPay: Gateway already registered as string');
-        } elseif (is_object($gateway) && get_class($gateway) === 'FuratPay_Gateway') {
-            error_log('FuratPay: Gateway already registered as object');
-        }
-    }
-    
+
     if (!in_array('FuratPay_Gateway', $gateways)) {
         $gateways[] = 'FuratPay_Gateway';
-    } else {
-        error_log('FuratPay: Gateway class already in list');
     }
-    
+
     return $gateways;
 }
 
@@ -153,7 +107,6 @@ function furatpay_admin_notices() {
     }
     
     if (!empty($errors)) {
-        error_log('FuratPay: Configuration errors found: ' . implode(', ', $errors));
         echo '<div class="error notice">';
         echo '<p><strong>' . __('FuratPay is misconfigured:', 'woo_furatpay') . '</strong></p>';
         echo '<ul style="list-style: inside; padding-left: 15px;">';
@@ -170,42 +123,3 @@ function furatpay_admin_notices() {
     }
 }
 
-// Add debug action for checkout page
-add_action('woocommerce_before_checkout_form', 'furatpay_debug_checkout');
-function furatpay_debug_checkout() {
-    $available_gateways = WC()->payment_gateways->get_available_payment_gateways();
-}
-
-// add_action('init', function() {
-//     if (isset($_GET['test_furatpay'])) {
-//         try {
-//             $api = new FuratPay_API_Handler();
-//             $services = $api::get_payment_services('https://pepu-furat-api-test.ylxkwt.easypanel.host', 'b4482e8d-8710-4c22-87a1-51f8a5e2aed1');
-//             echo '<pre>'; print_r($services); echo '</pre>';
-//             die();
-//         } catch (Exception $e) {
-//             echo 'Error: ' . $e->getMessage();
-//             die();
-//         }
-//     }
-// });
-
-add_action('template_redirect', function() {
-    if (is_checkout() && !is_wc_endpoint_url()) {
-        $available_gateways = WC()->payment_gateways->get_available_payment_gateways();
-    }
-});
-
-add_action('woocommerce_review_order_before_payment', function() {
-    error_log('##### Before payment methods rendering #####');
-});
-
-add_action('woocommerce_review_order_after_payment', function() {
-    error_log('##### After payment methods rendering #####');
-});
-
-// Add this to see if payment method HTML is being generated
-add_action('woocommerce_payment_methods_list_item', function($item, $gateway) {
-    error_log('Payment method being rendered: ' . $gateway->id);
-    return $item;
-}, 10, 2);
