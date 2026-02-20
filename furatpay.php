@@ -50,6 +50,97 @@ function furatpay_activation_check() {
     }
 }
 
+// CRITICAL: Hook very early to modify Store API requests and save extension data
+add_action('init', function() {
+    // Hook into REST API request parsing
+    add_filter('rest_pre_dispatch', function($result, $server, $request) {
+        $route = $request->get_route();
+
+        // Only handle checkout endpoint
+        if (strpos($route, '/wc/store/v1/checkout') === false) {
+            return $result;
+        }
+
+        // Get request body
+        $body = $request->get_json_params();
+        if (empty($body)) {
+            $body = $request->get_body_params();
+        }
+
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('FuratPay: REST pre-dispatch - payment_method: ' . (isset($body['payment_method']) ? $body['payment_method'] : 'NOT SET'));
+            error_log('FuratPay: extensions in request: ' . print_r(isset($body['extensions']) ? $body['extensions'] : 'NOT SET', true));
+        }
+
+        // If payment_method is missing, inject it
+        if (empty($body['payment_method'])) {
+            // Check if FuratPay is the only available gateway
+            if (function_exists('WC') && WC()->payment_gateways) {
+                $available = WC()->payment_gateways->get_available_payment_gateways();
+
+                if (isset($available['furatpay']) && count($available) === 1) {
+                    // Inject payment_method into the request
+                    $body['payment_method'] = 'furatpay';
+                    $request->set_body_params($body);
+
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('FuratPay: Injected payment_method=furatpay into request');
+                    }
+                }
+            }
+        }
+
+        // Store extension data in a global for later use
+        if (!empty($body['extensions']['furatpay'])) {
+            $GLOBALS['furatpay_checkout_data'] = $body['extensions']['furatpay'];
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('FuratPay: Stored extension data in global: ' . print_r($GLOBALS['furatpay_checkout_data'], true));
+            }
+        }
+
+        return $result;
+    }, 10, 3);
+
+    // Hook after order is created to save extension data
+    add_action('woocommerce_store_api_checkout_order_processed', function($order) {
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('FuratPay: Hook checkout_order_processed CALLED for order #' . $order->get_id());
+        }
+
+        // Only process if this is a furatpay order
+        if ($order->get_payment_method() !== 'furatpay') {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('FuratPay: Not a furatpay order, payment method is: ' . $order->get_payment_method());
+            }
+            return;
+        }
+
+        // Get the stored extension data
+        if (!empty($GLOBALS['furatpay_checkout_data'])) {
+            $furatpay_data = $GLOBALS['furatpay_checkout_data'];
+
+            if (isset($furatpay_data['furatpay_service'])) {
+                $service_id = intval($furatpay_data['furatpay_service']);
+                $order->update_meta_data('_furatpay_service_id', $service_id);
+
+                if (isset($furatpay_data['furatpay_service_name'])) {
+                    $order->update_meta_data('_furatpay_service_name', sanitize_text_field($furatpay_data['furatpay_service_name']));
+                }
+
+                $order->save();
+
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('FuratPay: Saved service data to order - Service ID: ' . $service_id);
+                }
+            }
+        } else {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('FuratPay: No extension data found in global');
+            }
+        }
+    }, 10, 1);
+}, 1);
+
 // Initialize the gateway
 add_action('plugins_loaded', 'furatpay_init', 0);
 
@@ -63,6 +154,7 @@ function furatpay_init() {
     require_once FURATPAY_PLUGIN_PATH . 'includes/class-furatpay-api-handler.php';
     require_once FURATPAY_PLUGIN_PATH . 'includes/class-furatpay-ipn-handler.php';
     require_once FURATPAY_PLUGIN_PATH . 'includes/class-furatpay-gateway.php';
+    require_once FURATPAY_PLUGIN_PATH . 'includes/class-furatpay-store-api.php';
 
     // Add the gateway to WooCommerce
     add_filter('woocommerce_payment_gateways', 'furatpay_add_gateway');

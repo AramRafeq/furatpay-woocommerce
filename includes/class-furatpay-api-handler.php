@@ -60,9 +60,9 @@ class FuratPay_API_Handler
 
         // Build invoice data
         $invoice_data = [
-            'code' => $order->get_id().'',
-            'number' => $order->get_id().'',
-            'order_number' => $order->get_id().'',
+            'code' => (string)$order->get_id(),
+            'number' => (int)$order->get_id(), // Must be integer per API spec
+            'order_number' => (string)$order->get_id(),
             'currency_id' => 3, // Iraqi Dinar (IQD)
             'base_currency_id' => 3, // Iraqi Dinar (IQD)
             'rate_id' => -1,
@@ -71,36 +71,42 @@ class FuratPay_API_Handler
             'due_at' => $current_time,
             'terms' => 'due_on_recept',
             'subject' => 'Web Payment',
-            'customer_notes' => '   ',
-            'terms_and_conditions' => '   ',
-            'notes' => '   ',
+            'customer_notes' => '',
+            'terms_and_conditions' => '',
+            'notes' => '',
             'attachments' => [],
             'discount' => 0,
             'discount_type' => 'percentage',
-            'subtotal' => $order_total,
-            'total' => $order_total,
+            'subtotal' => (float)$order_total,
+            'total' => (float)$order_total,
             'status' => 'pending',
-            'remarks' => '   ',
+            'remarks' => '',
             'items' => array_map(function($item) {
                 return [
                     'item' => $item->get_name(),
-                    'description' => ' ',
-                    'rate' => $item->get_total() / $item->get_quantity(),
-                    'quantity' => $item->get_quantity(),
+                    'description' => '',
+                    'rate' => (float)($item->get_total() / $item->get_quantity()),
+                    'quantity' => (int)$item->get_quantity(),
                     'discount' => 0
                 ];
             }, array_values($order->get_items())),
             'meta_data' => (object)[]
         ];
 
-        // Add customer information: either customer_id or customer object
+        // Add customer information
+        // customer_id is REQUIRED by the API - it can be UUID (existing) or code (auto-create)
         if (!empty($customer_id)) {
-            // Use existing customer ID from settings
+            // Use existing customer ID from settings (UUID)
             $invoice_data['customer_id'] = $customer_id;
         } else {
-            // Build customer object from WooCommerce order data
+            // Generate a customer code based on order email
+            // API will auto-create customer with this code if it doesn't exist
+            $customer_code = 'wc_' . sanitize_key($order->get_billing_email());
+            $invoice_data['customer_id'] = $customer_code;
+
+            // Provide customer object for auto-creation
             $invoice_data['customer'] = [
-                'name' => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name(),
+                'name' => trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()),
                 'email' => $order->get_billing_email(),
                 'phone' => $order->get_billing_phone(),
                 'address' => $order->get_billing_address_1(),
@@ -111,6 +117,10 @@ class FuratPay_API_Handler
             ];
         }
 
+        // Debug log the invoice data being sent
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('FuratPay: Creating invoice with data: ' . print_r($invoice_data, true));
+        }
 
         $response = wp_remote_post(
             $api_url . '/invoice',
@@ -132,6 +142,12 @@ class FuratPay_API_Handler
         $body = wp_remote_retrieve_body($response);
 
         if ($response_code !== 200 && $response_code !== 201) {
+            // Debug log the error response
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('FuratPay: Invoice creation failed with status ' . $response_code);
+                error_log('FuratPay: Error response body: ' . $body);
+            }
+
             $error_data = json_decode($body, true);
             $error_message = isset($error_data['message']) ? $error_data['message'] : 'Unknown error';
             /* translators: %s: error message from API */
@@ -180,6 +196,13 @@ class FuratPay_API_Handler
         $response_code = wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
 
+        // Debug log the payment response
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('FuratPay: Payment response status: ' . $response_code);
+            error_log('FuratPay: Payment response body: ' . $body);
+            error_log('FuratPay: Service ID: ' . $service_id);
+        }
+
         if ($response_code !== 200 && $response_code !== 201) {
             $error_data = json_decode($body, true);
             $error_message = isset($error_data['message']) ? $error_data['message'] : 'Unknown error';
@@ -191,9 +214,31 @@ class FuratPay_API_Handler
         
         // Check for the URL in the response structure
         $payment_url = null;
-        
+
+        // Handle FastPay response (service_id 2)
+        if ($service_id == 2) {
+            if (isset($body_array['data']['redirect_uri'])) {
+                $payment_url = $body_array['data']['redirect_uri'];
+            }
+
+            // Store FastPay data including QR code if available
+            if (isset($body_array['data']['qrUrl'])) {
+                $fastpay_data = [
+                    'redirect_uri' => $body_array['data']['redirect_uri'],
+                    'qrUrl' => $body_array['data']['qrUrl'],
+                    'qrText' => isset($body_array['data']['qrText']) ? $body_array['data']['qrText'] : ''
+                ];
+                set_transient('furatpay_fastpay_data_' . $invoice_id, $fastpay_data, 24 * HOUR_IN_SECONDS);
+            }
+        }
+        // Handle QiCard response (service_id 3)
+        elseif ($service_id == 3) {
+            if (isset($body_array['formUrl'])) {
+                $payment_url = $body_array['formUrl'];
+            }
+        }
         // Handle PayTabs response (service_id 5)
-        if ($service_id == 5) {
+        elseif ($service_id == 5) {
             if (isset($body_array['redirect_url'])) {
                 $payment_url = $body_array['redirect_url'];
             } elseif (isset($body_array['data']['redirect_uri'])) {
@@ -245,6 +290,11 @@ class FuratPay_API_Handler
         }
 
         if (!$payment_url) {
+            // Debug log what we received
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('FuratPay: No payment URL found in response');
+                error_log('FuratPay: Response structure: ' . print_r($body_array, true));
+            }
             throw new Exception(esc_html__('Invalid payment response - No payment URL found', 'furatpay'));
         }
 

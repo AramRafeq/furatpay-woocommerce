@@ -17,12 +17,27 @@ get_header('shop');
             <p><?php esc_html_e('Your order has been created and is waiting for payment.', 'furatpay'); ?></p>
             
             <?php
-            // Get FIB data if available
+            // Get payment service data if available
             $furatpay_invoice_id = $order->get_meta('_furatpay_invoice_id');
             $furatpay_fib_data = get_transient('furatpay_fib_data_' . $furatpay_invoice_id);
+            $furatpay_fastpay_data = get_transient('furatpay_fastpay_data_' . $furatpay_invoice_id);
             $furatpay_payment_service = $order->get_meta('_furatpay_service');
 
-            if ($furatpay_fib_data): ?>
+            // Display FastPay QR code if available
+            if ($furatpay_fastpay_data && !empty($furatpay_fastpay_data['qrUrl'])): ?>
+                <div class="furatpay-fastpay-container">
+                    <div class="furatpay-qr-section">
+                        <h3><?php esc_html_e('Scan QR Code', 'furatpay'); ?></h3>
+                        <img src="<?php echo esc_attr($furatpay_fastpay_data['qrUrl']); ?>" alt="QR Code" class="furatpay-qr-code furatpay-qr-code-large">
+                    </div>
+                    <div class="furatpay-redirect-section">
+                        <p><?php esc_html_e('Or click the button below to proceed:', 'furatpay'); ?></p>
+                        <a href="<?php echo esc_url($furatpay_fastpay_data['redirect_uri']); ?>" class="button alt furatpay-payment-button" target="_blank">
+                            <?php esc_html_e('Pay with FastPay', 'furatpay'); ?>
+                        </a>
+                    </div>
+                </div>
+            <?php elseif ($furatpay_fib_data): ?>
                 <div class="furatpay-fib-container">
                     <div class="furatpay-qr-section">
                         <h3><?php esc_html_e('Scan QR Code', 'furatpay'); ?></h3>
@@ -117,6 +132,7 @@ get_header('shop');
 <script type="text/javascript">
 jQuery(function($) {
     var fibData = <?php echo wp_json_encode(get_transient('furatpay_fib_data_' . $furatpay_invoice_id)); ?>;
+    var fastpayData = <?php echo wp_json_encode(get_transient('furatpay_fastpay_data_' . $furatpay_invoice_id)); ?>;
     var paymentUrl = <?php echo wp_json_encode($payment_url); ?>;
     var returnUrl = <?php echo wp_json_encode($return_url); ?>;
     var orderId = <?php echo wp_json_encode($order->get_id()); ?>;
@@ -124,7 +140,7 @@ jQuery(function($) {
     var paymentWindow = null;
 
     function openPaymentWindow() {
-      
+
         // First try to open a test window
         var testWindow = window.open('about:blank', 'test');
         if (!testWindow || testWindow.closed) {
@@ -133,8 +149,8 @@ jQuery(function($) {
         }
         testWindow.close();
 
-        // for FIB skip window open
-        if(!fibData){
+        // Skip window open for FIB or FastPay with QR code
+        if(!fibData && !(fastpayData && fastpayData.qrUrl)){
             // Try to open actual payment window
             paymentWindow = window.open(paymentUrl, 'FuratPayment');
             if (!paymentWindow || paymentWindow.closed) {
@@ -296,11 +312,40 @@ jQuery(function($) {
     text-align: center;
 }
 
-/* FIB specific styles */
-.furatpay-fib-container {
+/* FIB and FastPay specific styles */
+.furatpay-fib-container,
+.furatpay-fastpay-container {
     max-width: 600px;
     margin: 2em auto;
     padding: 1em;
+}
+
+.furatpay-redirect-section {
+    margin-top: 2em;
+    text-align: center;
+}
+
+.furatpay-payment-button {
+    display: inline-block;
+    padding: 12px 24px;
+    background-color: #52c41a;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.3s ease;
+    margin: 10px 0;
+    min-width: 200px;
+}
+
+.furatpay-payment-button:hover {
+    background-color: #389e0d;
+    color: #ffffff;
+    text-decoration: none;
 }
 
 .furatpay-qr-section {
@@ -312,6 +357,10 @@ jQuery(function($) {
     height: auto;
     margin: 1em auto;
     display: block;
+}
+
+.furatpay-qr-code-large {
+    max-width: 500px;
 }
 
 .furatpay-readable-code {

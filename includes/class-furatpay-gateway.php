@@ -326,7 +326,15 @@ class FuratPay_Gateway extends WC_Payment_Gateway
         $has_api_url = !empty($this->api_url);
         $has_api_key = !empty($this->api_key);
 
-        return $parent_available && $has_api_url && $has_api_key;
+        $is_available = $parent_available && $has_api_url && $has_api_key;
+
+        // Debug log for REST requests
+        if (defined('REST_REQUEST') && REST_REQUEST && defined('WP_DEBUG') && WP_DEBUG) {
+            $logger = wc_get_logger();
+            $logger->debug('Gateway: is_available() called during REST request - returning: ' . ($is_available ? 'true' : 'false'), array('source' => 'furatpay'));
+        }
+
+        return $is_available;
     }
 
     /**
@@ -567,8 +575,13 @@ class FuratPay_Gateway extends WC_Payment_Gateway
 
     public function validate_fields()
     {
-        // For block checkout, validation happens in process_payment
-        if (function_exists('wc_current_theme_is_fse_theme') && wc_current_theme_is_fse_theme()) {
+        // For block checkout, skip validation here as it happens in process_payment
+        if (defined('REST_REQUEST') && REST_REQUEST) {
+            return true;
+        }
+
+        // For FSE themes / block checkout
+        if (function_exists('wp_is_block_theme') && wp_is_block_theme()) {
             return true;
         }
 
