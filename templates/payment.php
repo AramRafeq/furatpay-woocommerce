@@ -11,97 +11,117 @@ get_header('shop');
 ?>
 <div class="furatpay-payment-page">
     <div class="furatpay-payment-container">
-        <h2><?php esc_html_e('Complete Your Payment', 'woo_furatpay'); ?></h2>
+        <h2><?php esc_html_e('Complete Your Payment', 'furatpay'); ?></h2>
         
         <div class="furatpay-payment-details">
-            <p><?php esc_html_e('Your order has been created and is waiting for payment.', 'woo_furatpay'); ?></p>
+            <p><?php esc_html_e('Your order has been created and is waiting for payment.', 'furatpay'); ?></p>
             
             <?php
-            // Get FIB data if available
-            $invoice_id = $order->get_meta('_furatpay_invoice_id');
-            $fib_data = get_transient('furatpay_fib_data_' . $invoice_id);
-            $payment_service = $order->get_meta('_furatpay_service');
-            
-            if ($fib_data): ?>
+            // Get payment service data if available
+            $furatpay_invoice_id = $order->get_meta('_furatpay_invoice_id');
+            $furatpay_fib_data = get_transient('furatpay_fib_data_' . $furatpay_invoice_id);
+            $furatpay_fastpay_data = get_transient('furatpay_fastpay_data_' . $furatpay_invoice_id);
+            $furatpay_payment_service = $order->get_meta('_furatpay_service');
+
+            // Display FastPay QR code if available
+            if ($furatpay_fastpay_data && !empty($furatpay_fastpay_data['qrUrl'])): ?>
+                <div class="furatpay-fastpay-container">
+                    <div class="furatpay-qr-section">
+                        <h3><?php esc_html_e('Scan QR Code', 'furatpay'); ?></h3>
+                        <img src="<?php echo esc_attr($furatpay_fastpay_data['qrUrl']); ?>" alt="QR Code" class="furatpay-qr-code furatpay-qr-code-large">
+                    </div>
+                    <div class="furatpay-redirect-section">
+                        <p><?php esc_html_e('Or click the button below to proceed:', 'furatpay'); ?></p>
+                        <a href="<?php echo esc_url($furatpay_fastpay_data['redirect_uri']); ?>" class="button alt furatpay-payment-button" target="_blank">
+                            <?php esc_html_e('Pay with FastPay', 'furatpay'); ?>
+                        </a>
+                    </div>
+                </div>
+            <?php elseif ($furatpay_fib_data): ?>
                 <div class="furatpay-fib-container">
                     <div class="furatpay-qr-section">
-                        <h3><?php esc_html_e('Scan QR Code', 'woo_furatpay'); ?></h3>
-                        <img src="<?php echo esc_attr($fib_data['qrCode']); ?>" alt="QR Code" class="furatpay-qr-code">
-                        <p class="furatpay-readable-code"><?php echo esc_html($fib_data['readableCode']); ?></p>
+                        <h3><?php esc_html_e('Scan QR Code', 'furatpay'); ?></h3>
+                        <img src="<?php echo esc_attr($furatpay_fib_data['qrCode']); ?>" alt="QR Code" class="furatpay-qr-code">
+                        <p class="furatpay-readable-code"><?php echo esc_html($furatpay_fib_data['readableCode']); ?></p>
                     </div>
-                    
+
                     <div class="furatpay-app-links">
-                        <h3><?php esc_html_e('Open in FIB App', 'woo_furatpay'); ?></h3>
+                        <h3><?php esc_html_e('Open in FIB App', 'furatpay'); ?></h3>
                         <div class="furatpay-app-buttons">
-                            <a href="<?php echo esc_url($fib_data['personalAppLink']); ?>" class="button alt furatpay-app-button" target="_blank">
-                                <?php esc_html_e('Personal Banking', 'woo_furatpay'); ?>
+                            <a href="<?php echo esc_url($furatpay_fib_data['personalAppLink']); ?>" class="button alt furatpay-app-button" target="_blank">
+                                <?php esc_html_e('Personal Banking', 'furatpay'); ?>
                             </a>
-                            <a href="<?php echo esc_url($fib_data['businessAppLink']); ?>" class="button alt furatpay-app-button" target="_blank">
-                                <?php esc_html_e('Business Banking', 'woo_furatpay'); ?>
+                            <a href="<?php echo esc_url($furatpay_fib_data['businessAppLink']); ?>" class="button alt furatpay-app-button" target="_blank">
+                                <?php esc_html_e('Business Banking', 'furatpay'); ?>
                             </a>
-                            <a href="<?php echo esc_url($fib_data['corporateAppLink']); ?>" class="button alt furatpay-app-button" target="_blank">
-                                <?php esc_html_e('Corporate Banking', 'woo_furatpay'); ?>
+                            <a href="<?php echo esc_url($furatpay_fib_data['corporateAppLink']); ?>" class="button alt furatpay-app-button" target="_blank">
+                                <?php esc_html_e('Corporate Banking', 'furatpay'); ?>
                             </a>
                         </div>
                         <p class="furatpay-valid-until">
-                            <?php 
-                            $valid_until = new DateTime($fib_data['validUntil']);
-                            $valid_until->setTimezone(new DateTimeZone(wp_timezone_string()));
+                            <?php
+                            $furatpay_valid_until = new DateTime($furatpay_fib_data['validUntil']);
+                            $furatpay_valid_until->setTimezone(new DateTimeZone(wp_timezone_string()));
+                            /* translators: %s: expiration date and time */
                             echo sprintf(
-                                esc_html__('Valid until: %s', 'woo_furatpay'),
-                                $valid_until->format('Y-m-d H:i:s T')
+                                esc_html__('Valid until: %s', 'furatpay'),
+                                esc_html($furatpay_valid_until->format('Y-m-d H:i:s T'))
                             );
                             ?>
                         </p>
                     </div>
                 </div>
-            <?php elseif ($payment_service == 5): // PayTabs ?>
+            <?php elseif ($furatpay_payment_service == 5): // PayTabs ?>
                 <div class="furatpay-paytabs-container">
                     <?php
-                    $paytabs_data = get_transient('furatpay_paytabs_data_' . $invoice_id);
-                    if ($paytabs_data): ?>
+                    $furatpay_paytabs_data = get_transient('furatpay_paytabs_data_' . $furatpay_invoice_id);
+                    if ($furatpay_paytabs_data): ?>
                         <div class="furatpay-paytabs-details">
                             <p class="paytabs-amount">
-                                <?php echo sprintf(
-                                    esc_html__('Amount: %s %s', 'woo_furatpay'),
-                                    $paytabs_data['cart_amount'],
-                                    $paytabs_data['cart_currency']
+                                <?php
+                                /* translators: 1: payment amount, 2: currency code */
+                                echo sprintf(
+                                    esc_html__('Amount: %1$s %2$s', 'furatpay'),
+                                    esc_html($furatpay_paytabs_data['cart_amount']),
+                                    esc_html($furatpay_paytabs_data['cart_currency'])
                                 ); ?>
                             </p>
                             <p class="paytabs-ref">
-                                <?php echo sprintf(
-                                    esc_html__('Transaction Reference: %s', 'woo_furatpay'),
-                                    $paytabs_data['tran_ref']
+                                <?php
+                                /* translators: %s: PayTabs transaction reference number */
+                                echo sprintf(
+                                    esc_html__('Transaction Reference: %s', 'furatpay'),
+                                    esc_html($furatpay_paytabs_data['tran_ref'])
                                 ); ?>
                             </p>
                         </div>
                     <?php endif; ?>
-                    <p><?php esc_html_e('You will be redirected to PayTabs secure payment page.', 'woo_furatpay'); ?></p>
+                    <p><?php esc_html_e('You will be redirected to PayTabs secure payment page.', 'furatpay'); ?></p>
                     <button id="furatpay-open-payment" class="button alt">
-                        <?php esc_html_e('Proceed to PayTabs', 'woo_furatpay'); ?>
+                        <?php esc_html_e('Proceed to PayTabs', 'furatpay'); ?>
                     </button>
                 </div>
             <?php else: ?>
                 <!-- Payment Status Container -->
                 <div id="furatpay-payment-status" class="furatpay-payment-section">
-                    <p><?php esc_html_e('Payment window has been opened in a new tab. Please complete your payment there.', 'woo_furatpay'); ?></p>
+                    <p><?php esc_html_e('Payment window has been opened in a new tab. Please complete your payment there.', 'furatpay'); ?></p>
                     <div class="furatpay-spinner"></div>
-                    <p style="font-size: 17px;font-weight:500;"><?php esc_html_e('This page will update automatically once payment is confirmed.', 'woo_furatpay'); ?></p>
+                    <p style="font-size: 17px;font-weight:500;"><?php esc_html_e('This page will update automatically once payment is confirmed.', 'furatpay'); ?></p>
                 </div>
 
                 <!-- Popup Blocked Message -->
                 <div id="furatpay-popup-blocked" class="furatpay-payment-section" style="display: none;">
-                    <p class="furatpay-warning"><?php esc_html_e('To proceed with your payment, please allow popups for this website.', 'woo_furatpay'); ?></p>
+                    <p class="furatpay-warning"><?php esc_html_e('To proceed with your payment, please allow popups for this website.', 'furatpay'); ?></p>
                     <button id="furatpay-retry-payment" class="button alt">
-                        <?php esc_html_e('Try Again', 'woo_furatpay'); ?>
+                        <?php esc_html_e('Try Again', 'furatpay'); ?>
                     </button>
                 </div>
 
                 <!-- Payment Retry Container -->
                 <div id="furatpay-payment-retry" class="furatpay-payment-section" style="display: none;">
-                    <p><?php esc_html_e('Payment window was closed. Click below to reopen the payment window:', 'woo_furatpay'); ?></p>
+                    <p><?php esc_html_e('Payment window was closed. Click below to reopen the payment window:', 'furatpay'); ?></p>
                     <button id="furatpay-reopen-payment" class="button alt">
-                        <?php esc_html_e('Reopen Payment Window', 'woo_furatpay'); ?>
+                        <?php esc_html_e('Reopen Payment Window', 'furatpay'); ?>
                     </button>
                 </div>
             <?php endif; ?>
@@ -111,15 +131,16 @@ get_header('shop');
 
 <script type="text/javascript">
 jQuery(function($) {
-    var fibData = <?php echo json_encode(get_transient('furatpay_fib_data_' . $invoice_id)); ?>;
-    var paymentUrl = <?php echo json_encode($payment_url); ?>;
-    var returnUrl = <?php echo json_encode($return_url); ?>;
-    var orderId = <?php echo json_encode($order->get_id()); ?>;
+    var fibData = <?php echo wp_json_encode(get_transient('furatpay_fib_data_' . $furatpay_invoice_id)); ?>;
+    var fastpayData = <?php echo wp_json_encode(get_transient('furatpay_fastpay_data_' . $furatpay_invoice_id)); ?>;
+    var paymentUrl = <?php echo wp_json_encode($payment_url); ?>;
+    var returnUrl = <?php echo wp_json_encode($return_url); ?>;
+    var orderId = <?php echo wp_json_encode($order->get_id()); ?>;
     var checkInterval;
     var paymentWindow = null;
 
     function openPaymentWindow() {
-      
+
         // First try to open a test window
         var testWindow = window.open('about:blank', 'test');
         if (!testWindow || testWindow.closed) {
@@ -128,8 +149,8 @@ jQuery(function($) {
         }
         testWindow.close();
 
-        // for FIB skip window open
-        if(!fibData){
+        // Skip window open for FIB or FastPay with QR code
+        if(!fibData && !(fastpayData && fastpayData.qrUrl)){
             // Try to open actual payment window
             paymentWindow = window.open(paymentUrl, 'FuratPayment');
             if (!paymentWindow || paymentWindow.closed) {
@@ -176,12 +197,12 @@ jQuery(function($) {
         }
 
         $.ajax({
-            url: <?php echo json_encode($ajax_url); ?>,
+            url: <?php echo wp_json_encode($ajax_url); ?>,
             type: 'POST',
             data: {
                 action: 'furatpay_check_payment_status',
                 order_id: orderId,
-                nonce: <?php echo json_encode($nonce); ?>
+                nonce: <?php echo wp_json_encode($nonce); ?>
             },
             success: function(response) {
                 if (response.success) {
@@ -291,11 +312,40 @@ jQuery(function($) {
     text-align: center;
 }
 
-/* FIB specific styles */
-.furatpay-fib-container {
+/* FIB and FastPay specific styles */
+.furatpay-fib-container,
+.furatpay-fastpay-container {
     max-width: 600px;
     margin: 2em auto;
     padding: 1em;
+}
+
+.furatpay-redirect-section {
+    margin-top: 2em;
+    text-align: center;
+}
+
+.furatpay-payment-button {
+    display: inline-block;
+    padding: 12px 24px;
+    background-color: #52c41a;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.3s ease;
+    margin: 10px 0;
+    min-width: 200px;
+}
+
+.furatpay-payment-button:hover {
+    background-color: #389e0d;
+    color: #ffffff;
+    text-decoration: none;
 }
 
 .furatpay-qr-section {
@@ -307,6 +357,10 @@ jQuery(function($) {
     height: auto;
     margin: 1em auto;
     display: block;
+}
+
+.furatpay-qr-code-large {
+    max-width: 500px;
 }
 
 .furatpay-readable-code {

@@ -4,6 +4,8 @@ jQuery(function($) {
     var orderId = furatpayData.orderId;
     var checkInterval;
     var paymentWindow = null;
+    var checkAttempts = 0;
+    var maxAttempts = 360; // 360 attempts * 5 seconds = 30 minutes max
 
     function openPaymentWindow() {
         var testWindow = window.open('about:blank', 'test');
@@ -33,10 +35,20 @@ jQuery(function($) {
         if (checkInterval) {
             clearInterval(checkInterval);
         }
+        checkAttempts = 0; // Reset counter
         checkInterval = setInterval(checkPaymentStatus, 5000);
     }
 
     function checkPaymentStatus() {
+        checkAttempts++;
+
+        // Stop polling after max attempts (30 minutes)
+        if (checkAttempts > maxAttempts) {
+            clearInterval(checkInterval);
+            showSection('payment-retry');
+            return;
+        }
+
         if (paymentWindow && paymentWindow.closed) {
             showSection('payment-retry');
         }
@@ -58,6 +70,13 @@ jQuery(function($) {
                         clearInterval(checkInterval);
                         showSection('payment-retry');
                     }
+                }
+            },
+            error: function() {
+                // On error, reduce frequency by stopping and letting user retry
+                if (checkAttempts > 10) { // After 10 failed attempts, stop
+                    clearInterval(checkInterval);
+                    showSection('payment-retry');
                 }
             }
         });

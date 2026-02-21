@@ -30,8 +30,7 @@ const PaymentServiceList = ({ services, selectedService, onSelect }) => {
 
 // Function to show payment overlay
 function showPaymentWaitingOverlay() {
-    console.log('Showing payment waiting overlay');
-    const overlay = document.createElement('div');
+        const overlay = document.createElement('div');
     overlay.className = 'furatpay-payment-overlay';
     overlay.innerHTML = `
         <div class="furatpay-payment-status">
@@ -46,10 +45,8 @@ function showPaymentWaitingOverlay() {
 
 // Function to open payment window
 function openPaymentWindow(paymentUrl) {
-    console.log('Attempting to open payment URL:', paymentUrl);
     const paymentWindow = window.open(paymentUrl, '_blank');
     if (!paymentWindow) {
-        console.log('Payment window blocked');
         return false;
     }
     return true;
@@ -61,7 +58,6 @@ const FuratPayComponent = ({ eventRegistration, emitResponse }) => {
     const { onPaymentProcessing } = eventRegistration;
 
     useEffect(() => {
-        console.log('FuratPay blocks component mounted');
         // Fetch payment services
         fetch(furatpayData.ajaxUrl, {
             method: 'POST',
@@ -75,21 +71,17 @@ const FuratPayComponent = ({ eventRegistration, emitResponse }) => {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Payment services fetched:', data);
             if (data.success && Array.isArray(data.data)) {
                 setPaymentServices(data.data);
             }
         })
         .catch(error => {
-            console.error('Error fetching payment services:', error);
         });
     }, []);
 
     useEffect(() => {
         const unsubscribe = onPaymentProcessing(() => {
-            console.log('Payment processing started');
             if (!selectedService) {
-                console.log('No service selected');
                 return {
                     type: emitResponse.responseTypes.ERROR,
                     message: __('Please select a payment service.', 'woo_furatpay')
@@ -115,7 +107,6 @@ const FuratPayComponent = ({ eventRegistration, emitResponse }) => {
 
     // Handle service selection
     const handleServiceSelect = (serviceId) => {
-        console.log('Service selected:', serviceId);
         setSelectedService(serviceId);
     };
 
