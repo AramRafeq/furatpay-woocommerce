@@ -81,15 +81,12 @@ const FuratPayComponent = ({ eventRegistration, emitResponse, extensions }) => {
                         try {
                             sessionStorage.setItem('furatpay_service_id', firstServiceId.toString());
                             sessionStorage.setItem('furatpay_service_name', firstServiceName);
-                            console.log('FuratPay: Auto-selected first service:', firstServiceName);
-                        } catch (e) {
-                            console.error('FuratPay: Error storing auto-selected service:', e);
-                        }
+                                                    } catch (e) {
+                                                    }
                     }
                 }
             } catch (error) {
-                console.error('FuratPay: Error fetching payment services:', error);
-            }
+                            }
         };
 
         fetchServices();
@@ -102,12 +99,7 @@ const FuratPayComponent = ({ eventRegistration, emitResponse, extensions }) => {
     // Register payment setup callback
     useEffect(() => {
         const unsubscribe = onPaymentSetup(() => {
-            console.log('FuratPay: Payment setup callback triggered');
-            console.log('FuratPay: Selected service:', selectedService);
-            console.log('FuratPay: Available services:', paymentServices.length);
-
             if (!selectedService) {
-                console.error('FuratPay: No service selected, returning error');
                 return {
                     type: emitResponse.responseTypes.ERROR,
                     message: __('Please select a payment service.', 'woo_furatpay'),
@@ -117,8 +109,7 @@ const FuratPayComponent = ({ eventRegistration, emitResponse, extensions }) => {
             // Find the selected service details
             const service = paymentServices.find(s => s.id === selectedService);
             if (!service) {
-                console.error('FuratPay: Service not found');
-                return {
+                                return {
                     type: emitResponse.responseTypes.ERROR,
                     message: __('Invalid payment service selected.', 'woo_furatpay'),
                 };
@@ -129,8 +120,7 @@ const FuratPayComponent = ({ eventRegistration, emitResponse, extensions }) => {
                 { key: 'furatpay_service_name', value: service.name }
             ];
 
-            console.log('FuratPay: Returning SUCCESS with data:', paymentData);
-
+            
             return {
                 type: emitResponse.responseTypes.SUCCESS,
                 meta: {
@@ -163,13 +153,8 @@ const FuratPayComponent = ({ eventRegistration, emitResponse, extensions }) => {
             try {
                 sessionStorage.setItem('furatpay_service_id', serviceId.toString());
                 sessionStorage.setItem('furatpay_service_name', service.name);
-                console.log('FuratPay: Stored service in sessionStorage:', {
-                    service_id: serviceId,
-                    service_name: service.name
-                });
             } catch (e) {
-                console.error('FuratPay: Error storing in sessionStorage:', e);
-            }
+                            }
         }
     };
 
@@ -205,7 +190,6 @@ const options = {
     content: <FuratPayComponent />,
     edit: <FuratPayComponent />,
     canMakePayment: () => {
-        console.log('FuratPay: canMakePayment called');
         return true;
     },
     ariaLabel: __('FuratPay payment method', 'woo_furatpay'),
@@ -218,9 +202,7 @@ const options = {
 
 // Use the global wc object
 const { registerPaymentMethod } = wc.wcBlocksRegistry;
-console.log('FuratPay: Registering payment method with options:', options);
 registerPaymentMethod(options);
-console.log('FuratPay: Payment method registered successfully');
 
 // Intercept fetch requests to inject extension data
 (function() {
@@ -230,7 +212,6 @@ console.log('FuratPay: Payment method registered successfully');
 
         // Check if this is the checkout endpoint
         if (url && typeof url === 'string' && url.includes('/wc/store/v1/checkout')) {
-            console.log('FuratPay: Intercepted checkout request');
 
             // Get the stored service data
             const serviceId = sessionStorage.getItem('furatpay_service_id');
@@ -254,12 +235,9 @@ console.log('FuratPay: Payment method registered successfully');
                     // Update the request body
                     config.body = JSON.stringify(body);
 
-                    console.log('FuratPay: Injected extension data into request:', body.extensions.furatpay);
                 } catch (e) {
-                    console.error('FuratPay: Error modifying request:', e);
                 }
             } else {
-                console.log('FuratPay: No service data found in sessionStorage');
             }
         }
 
@@ -267,33 +245,28 @@ console.log('FuratPay: Payment method registered successfully');
         return originalFetch.apply(this, args);
     };
 
-    console.log('FuratPay: Fetch interceptor installed');
 })();
 
 // Critical: Ensure payment method is auto-selected when it's the only one
 if (typeof wp !== 'undefined' && wp.data && wp.data.select) {
     // Wait for DOM to be ready
     wp.domReady(() => {
-        console.log('FuratPay: Attempting to auto-select payment method');
 
         // Try to get the checkout store
         try {
             const checkoutStore = wp.data.select('wc/store/checkout');
             if (checkoutStore) {
                 const availableMethods = checkoutStore.getAvailablePaymentMethods();
-                console.log('FuratPay: Available payment methods:', availableMethods);
 
                 // If furatpay is available, try to select it
                 if (availableMethods && availableMethods.includes(PAYMENT_METHOD_NAME)) {
                     const dispatch = wp.data.dispatch('wc/store/payment');
                     if (dispatch && dispatch.setActivePaymentMethod) {
                         dispatch.setActivePaymentMethod(PAYMENT_METHOD_NAME);
-                        console.log('FuratPay: Successfully set as active payment method');
                     }
                 }
             }
         } catch (e) {
-            console.log('FuratPay: Could not auto-select:', e.message);
         }
     });
 } 

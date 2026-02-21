@@ -74,10 +74,6 @@ class FuratPay_IPN_Handler {
 
             return new WP_REST_Response(['success' => true], 200);
         } catch (Exception $e) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                $logger = wc_get_logger();
-                $logger->error('FuratPay IPN Error: ' . $e->getMessage(), array('source' => 'furatpay'));
-            }
             return new WP_REST_Response(['error' => $e->getMessage()], 400);
         }
     }

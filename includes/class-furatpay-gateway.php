@@ -328,12 +328,6 @@ class FuratPay_Gateway extends WC_Payment_Gateway
 
         $is_available = $parent_available && $has_api_url && $has_api_key;
 
-        // Debug log for REST requests
-        if (defined('REST_REQUEST') && REST_REQUEST && defined('WP_DEBUG') && WP_DEBUG) {
-            $logger = wc_get_logger();
-            $logger->debug('Gateway: is_available() called during REST request - returning: ' . ($is_available ? 'true' : 'false'), array('source' => 'furatpay'));
-        }
-
         return $is_available;
     }
 
@@ -354,12 +348,6 @@ class FuratPay_Gateway extends WC_Payment_Gateway
 
             // Get selected payment service
             $payment_service_id = 0;
-
-            // Debug log
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                $logger = wc_get_logger();
-                $logger->debug('Process payment - POST data: ' . print_r($_POST, true), array('source' => 'furatpay'));
-            }
 
             // For classic checkout
             if (isset($_POST['furatpay_service'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -614,28 +602,10 @@ class FuratPay_Gateway extends WC_Payment_Gateway
         check_ajax_referer('furatpay-nonce', 'nonce');
 
         try {
-            // Debug log
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                $logger = wc_get_logger();
-                $logger->debug('AJAX: Getting payment services. API URL: ' . $this->api_url, array('source' => 'furatpay'));
-            }
-
             $services = FuratPay_API_Handler::get_payment_services($this->api_url, $this->api_key);
-
-            // Debug log
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                $logger = wc_get_logger();
-                $logger->debug('AJAX: Found ' . count($services) . ' payment services', array('source' => 'furatpay'));
-            }
 
             wp_send_json_success($services);
         } catch (Exception $e) {
-            // Log the error
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                $logger = wc_get_logger();
-                $logger->error('AJAX Error: ' . $e->getMessage(), array('source' => 'furatpay'));
-            }
-
             wp_send_json_error(array(
                 'message' => $e->getMessage()
             ), 400);

@@ -32,14 +32,8 @@ class FuratPay_Store_API_Extension {
                     'schema_type' => ARRAY_A,
                 )
             );
-
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('FuratPay: Store API extension registered successfully');
-            }
         } catch (Exception $e) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('FuratPay: Failed to register Store API extension: ' . $e->getMessage());
-            }
+            // Extension registration failed
         }
     }
 
@@ -65,10 +59,6 @@ class FuratPay_Store_API_Extension {
      * Get data callback - retrieve extension data from request and save to order
      */
     public function data_callback($data = null) {
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('FuratPay: Store API data_callback called with data: ' . print_r($data, true));
-        }
-
         // Data will be available during checkout processing
         // We'll use the woocommerce_store_api_checkout_update_order_from_request hook to save it
         return array(

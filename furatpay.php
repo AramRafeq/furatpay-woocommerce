@@ -67,11 +67,6 @@ add_action('init', function() {
             $body = $request->get_body_params();
         }
 
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('FuratPay: REST pre-dispatch - payment_method: ' . (isset($body['payment_method']) ? $body['payment_method'] : 'NOT SET'));
-            error_log('FuratPay: extensions in request: ' . print_r(isset($body['extensions']) ? $body['extensions'] : 'NOT SET', true));
-        }
-
         // If payment_method is missing, inject it
         if (empty($body['payment_method'])) {
             // Check if FuratPay is the only available gateway
@@ -82,10 +77,6 @@ add_action('init', function() {
                     // Inject payment_method into the request
                     $body['payment_method'] = 'furatpay';
                     $request->set_body_params($body);
-
-                    if (defined('WP_DEBUG') && WP_DEBUG) {
-                        error_log('FuratPay: Injected payment_method=furatpay into request');
-                    }
                 }
             }
         }
@@ -93,9 +84,6 @@ add_action('init', function() {
         // Store extension data in a global for later use
         if (!empty($body['extensions']['furatpay'])) {
             $GLOBALS['furatpay_checkout_data'] = $body['extensions']['furatpay'];
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('FuratPay: Stored extension data in global: ' . print_r($GLOBALS['furatpay_checkout_data'], true));
-            }
         }
 
         return $result;
@@ -103,15 +91,8 @@ add_action('init', function() {
 
     // Hook after order is created to save extension data
     add_action('woocommerce_store_api_checkout_order_processed', function($order) {
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('FuratPay: Hook checkout_order_processed CALLED for order #' . $order->get_id());
-        }
-
         // Only process if this is a furatpay order
         if ($order->get_payment_method() !== 'furatpay') {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('FuratPay: Not a furatpay order, payment method is: ' . $order->get_payment_method());
-            }
             return;
         }
 
@@ -128,14 +109,6 @@ add_action('init', function() {
                 }
 
                 $order->save();
-
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('FuratPay: Saved service data to order - Service ID: ' . $service_id);
-                }
-            }
-        } else {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('FuratPay: No extension data found in global');
             }
         }
     }, 10, 1);
@@ -195,28 +168,10 @@ function furatpay_ajax_get_payment_services() {
         $api_url = $gateway->get_option('api_url');
         $api_key = $gateway->get_option('api_key');
 
-        // Debug log
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            $logger = wc_get_logger();
-            $logger->debug('AJAX: Getting payment services. API URL: ' . $api_url, array('source' => 'furatpay'));
-        }
-
         $services = FuratPay_API_Handler::get_payment_services($api_url, $api_key);
-
-        // Debug log
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            $logger = wc_get_logger();
-            $logger->debug('AJAX: Found ' . count($services) . ' payment services', array('source' => 'furatpay'));
-        }
 
         wp_send_json_success($services);
     } catch (Exception $e) {
-        // Log the error
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            $logger = wc_get_logger();
-            $logger->error('AJAX Error: ' . $e->getMessage(), array('source' => 'furatpay'));
-        }
-
         wp_send_json_error(array(
             'message' => $e->getMessage()
         ), 400);

@@ -25,8 +25,6 @@ class FuratPay_API_Handler
 
         if (is_wp_error($response)) {
             $error_message = $response->get_error_message();
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                }
             /* translators: %s: error message from API */
             throw new Exception(sprintf(esc_html__('Failed to retrieve payment services: %s', 'furatpay'), $error_message));
         }
@@ -117,11 +115,6 @@ class FuratPay_API_Handler
             ];
         }
 
-        // Debug log the invoice data being sent
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('FuratPay: Creating invoice with data: ' . print_r($invoice_data, true));
-        }
-
         $response = wp_remote_post(
             $api_url . '/invoice',
             [
@@ -142,12 +135,6 @@ class FuratPay_API_Handler
         $body = wp_remote_retrieve_body($response);
 
         if ($response_code !== 200 && $response_code !== 201) {
-            // Debug log the error response
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('FuratPay: Invoice creation failed with status ' . $response_code);
-                error_log('FuratPay: Error response body: ' . $body);
-            }
-
             $error_data = json_decode($body, true);
             $error_message = isset($error_data['message']) ? $error_data['message'] : 'Unknown error';
             /* translators: %s: error message from API */
@@ -195,13 +182,6 @@ class FuratPay_API_Handler
 
         $response_code = wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
-
-        // Debug log the payment response
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('FuratPay: Payment response status: ' . $response_code);
-            error_log('FuratPay: Payment response body: ' . $body);
-            error_log('FuratPay: Service ID: ' . $service_id);
-        }
 
         if ($response_code !== 200 && $response_code !== 201) {
             $error_data = json_decode($body, true);
@@ -290,11 +270,6 @@ class FuratPay_API_Handler
         }
 
         if (!$payment_url) {
-            // Debug log what we received
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('FuratPay: No payment URL found in response');
-                error_log('FuratPay: Response structure: ' . print_r($body_array, true));
-            }
             throw new Exception(esc_html__('Invalid payment response - No payment URL found', 'furatpay'));
         }
 
