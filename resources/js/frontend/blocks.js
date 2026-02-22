@@ -44,14 +44,22 @@ const PaymentServiceList = ({ services, selectedService, onSelect }) => {
 const FuratPayComponent = ({ eventRegistration, emitResponse, extensions }) => {
     const [selectedService, setSelectedService] = useState(null);
     const [paymentServices, setPaymentServices] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
     const { onPaymentSetup } = eventRegistration;
 
-    // Fetch payment services only once on mount
     useEffect(() => {
         let isMounted = true;
 
         const fetchServices = async () => {
             try {
+                setIsLoading(true);
+                setError(null);
+
+                if (!furatpayData || !furatpayData.ajaxUrl) {
+                    throw new Error('FuratPay configuration not found');
+                }
+
                 const response = await fetch(furatpayData.ajaxUrl, {
                     method: 'POST',
                     headers: {
@@ -64,29 +72,38 @@ const FuratPayComponent = ({ eventRegistration, emitResponse, extensions }) => {
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to fetch payment services');
+                    throw new Error('Failed to fetch payment services (HTTP ' + response.status + ')');
                 }
 
                 const data = await response.json();
 
-                if (isMounted && data.success && Array.isArray(data.data)) {
+                if (!isMounted) return;
+
+                if (data.success && Array.isArray(data.data)) {
                     setPaymentServices(data.data);
-                    // Auto-select first service to ensure payment method is active
                     if (data.data.length > 0 && !selectedService) {
                         const firstServiceId = data.data[0].id;
                         const firstServiceName = data.data[0].name;
                         setSelectedService(firstServiceId);
-
-                        // Store in sessionStorage
                         try {
                             sessionStorage.setItem('furatpay_service_id', firstServiceId.toString());
                             sessionStorage.setItem('furatpay_service_name', firstServiceName);
-                                                    } catch (e) {
-                                                    }
+                        } catch (e) {}
                     }
+                } else {
+                    const msg = (data.data && data.data.message) || 'No payment services returned';
+                    throw new Error(msg);
                 }
-            } catch (error) {
-                            }
+            } catch (err) {
+                if (isMounted) {
+                    console.error('FuratPay: Error loading payment services:', err);
+                    setError(err.message);
+                }
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
         };
 
         fetchServices();
@@ -132,6 +149,22 @@ const FuratPayComponent = ({ eventRegistration, emitResponse, extensions }) => {
 
         return () => unsubscribe();
     }, [onPaymentSetup, selectedService, paymentServices, emitResponse.responseTypes]);
+
+    if (isLoading) {
+        return (
+            <div className="furatpay-payment-method-block">
+                <p>{__('Loading payment services...', 'woo_furatpay')}</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="furatpay-payment-method-block">
+                <p style={{ color: '#dc3232' }}>{__('Error loading payment services. Please refresh the page.', 'woo_furatpay')}</p>
+            </div>
+        );
+    }
 
     if (paymentServices.length === 0) {
         return (

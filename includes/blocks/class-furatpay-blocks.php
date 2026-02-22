@@ -42,6 +42,17 @@ final class FuratPay_Blocks extends AbstractPaymentMethodType {
             'nonce' => wp_create_nonce('furatpay-nonce')
         ]);
 
+        wp_register_style(
+            'furatpay-blocks',
+            FURATPAY_PLUGIN_URL . 'assets/css/checkout.css',
+            [],
+            FURATPAY_VERSION
+        );
+
+        return ['furatpay-blocks'];
+    }
+
+    public function get_payment_method_style_handles() {
         return ['furatpay-blocks'];
     }
 

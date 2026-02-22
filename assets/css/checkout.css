@@ -1,5 +1,20 @@
+/* ========================================
+   FuratPay Checkout Styles
+   High specificity to prevent theme overrides
+   ======================================== */
+
 #furatpay-payment-form-wrapper {
     margin: 1em 0;
+}
+
+/* Classic checkout: ensure payment fields are visible */
+.wc_payment_method.payment_method_furatpay .payment_box {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    height: auto !important;
 }
 
 .furatpay-payment-form {
@@ -7,10 +22,14 @@
     background: #f8f8f8;
     border-radius: 4px;
     margin-bottom: 1em;
+    display: block !important;
+    visibility: visible !important;
 }
 
 .furatpay-services-wrapper {
     margin-top: 1em;
+    display: block !important;
+    visibility: visible !important;
 }
 
 .furatpay-services-wrapper h4 {
@@ -19,48 +38,67 @@
     font-weight: 600;
 }
 
-.furatpay-method-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
+ul.furatpay-method-list {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
     gap: 10px;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
-/* .furatpay-method-item {
+li.furatpay-method-item {
+    display: list-item !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    border-radius: 4px;
+    transition: border-color 0.2s;
+    list-style: none !important;
     margin: 0 !important;
     padding: 0 !important;
-} */
+}
+
+li.furatpay-method-item:hover {
+    border-color: #666;
+}
 
 .furatpay-method-item label {
-    display: flex;
-    align-items: center;
+    display: flex !important;
+    align-items: center !important;
     gap: 12px;
     padding: 12px;
-    /* border: 1px solid #ddd; */
+    border: 1px solid #ddd;
     border-radius: 4px;
     background: #fff;
     cursor: pointer;
     transition: all 0.2s ease;
-    
 }
 
 .furatpay-method-item label:hover {
     border-color: #666;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background: #f8f9fa;
 }
 
 .furatpay-method-item input[type="radio"] {
-    margin: 0;
-    height: 20px;
-    width: 20px;
+    margin: 0 !important;
+    height: 20px !important;
+    width: 20px !important;
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: static !important;
+    -webkit-appearance: radio !important;
+    appearance: radio !important;
 }
 
 .furatpay-method-logo {
     max-height: 32px;
     width: auto;
     object-fit: contain;
+    margin: 0 4px;
 }
 
 .furatpay-method-name {
@@ -82,22 +120,14 @@
     opacity: 0.7;
 }
 
-/* Error message styling */
-.woocommerce-error {
-    margin: 1em 0;
-    padding: 1em;
-    border-left: 4px solid #dc3232;
-    background: #fff;
-    box-shadow: 0 1px 1px rgba(0,0,0,.04);
-}
-
-/* Block-specific styles */
+/* Block checkout styles */
 .furatpay-payment-method-block {
-    /* padding: 16px; */
-    /* background: #f8f9fa; */
     background: transparent;
     border-radius: 4px;
     margin-bottom: 16px;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 .furatpay-block-label {
@@ -115,43 +145,14 @@
     margin-top: 8px;
 }
 
-/* Payment method list styles */
-.furatpay-method-list {
-    list-style: none;
-    padding: 0;
-    margin: 16px 0;
-}
-
-/* .furatpay-method-item {
-    margin-bottom: 8px;
-} */
-
-.furatpay-method-item label {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.furatpay-method-item label:hover {
-    background: #f8f9fa;
-}
-
-.furatpay-method-item input[type="radio"] {
-    margin: 0;
-}
-
-.furatpay-method-logo {
-    max-height: 32px;
-    width: auto;
-}
-
-.furatpay-method-name {
-    font-weight: 500;
+/* Block checkout: ensure content area is visible when FuratPay is selected */
+.wc-block-components-radio-control-accordion-content:has(.furatpay-payment-method-block),
+.wc-block-components-radio-control-accordion-content:has(.furatpay-method-list) {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-height: none !important;
+    overflow: visible !important;
 }
 
 .furatpay-loading-overlay {
@@ -174,39 +175,6 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     font-size: 16px;
     text-align: center;
-}
-
-.furatpay-method-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.furatpay-method-item {
-    /* margin-bottom: 10px; */
-    /* padding: 10px; */
-    /* border: 1px solid #ddd; */
-    border-radius: 4px;
-    transition: border-color 0.2s;
-}
-
-.furatpay-method-item:hover {
-    border-color: #666;
-}
-
-.furatpay-method-item label {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-}
-
-.furatpay-method-logo {
-    max-height: 30px;
-    margin: 0 10px;
-}
-
-.furatpay-method-name {
-    font-weight: 500;
 }
 
 /* Payment waiting overlay */

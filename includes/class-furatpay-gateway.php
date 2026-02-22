@@ -58,10 +58,7 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             }
         });
 
-        // Enable blocks integration
-        add_action('woocommerce_blocks_loaded', function() {
-            require_once FURATPAY_PLUGIN_PATH . 'includes/blocks/class-furatpay-blocks.php';
-        });
+        // Blocks integration is now loaded from furatpay.php to ensure proper timing
 
         // Add AJAX endpoints
         add_action('wp_ajax_furatpay_get_payment_services', array($this, 'ajax_get_payment_services'));
@@ -253,17 +250,14 @@ class FuratPay_Gateway extends WC_Payment_Gateway
 
     public function enqueue_checkout_scripts()
     {
-        if (!is_checkout()) {
+        if (!is_checkout() && !has_block('woocommerce/checkout')) {
             return;
         }
 
-        // Force cache bust with current timestamp
-        $version = time();
+        $version = FURATPAY_VERSION;
 
-        // Enqueue jQuery first
         wp_enqueue_script('jquery');
 
-        // Enqueue checkout script with explicit jQuery dependency
         wp_enqueue_script(
             'furatpay-checkout',
             FURATPAY_PLUGIN_URL . 'assets/js/checkout.js',
@@ -272,7 +266,6 @@ class FuratPay_Gateway extends WC_Payment_Gateway
             true
         );
 
-        // Common data for both classic and block checkout
         $script_data = array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('furatpay-nonce'),
@@ -294,18 +287,6 @@ class FuratPay_Gateway extends WC_Payment_Gateway
         );
 
         wp_localize_script('furatpay-checkout', 'furatpayData', $script_data);
-
-        // Only load blocks script if using block checkout
-        if (function_exists('wc_current_theme_is_fse_theme') && wc_current_theme_is_fse_theme()) {
-            wp_enqueue_script(
-                'furatpay-blocks',
-                FURATPAY_PLUGIN_URL . 'build/blocks.js',
-                array('wc-blocks-registry', 'wp-element', 'wp-i18n'),
-                $version,
-                true
-            );
-            wp_localize_script('furatpay-blocks', 'furatpayData', $script_data);
-        }
 
         wp_enqueue_style(
             'furatpay-checkout',

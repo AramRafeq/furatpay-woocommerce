@@ -114,6 +114,16 @@ add_action('init', function() {
     }, 10, 1);
 }, 1);
 
+// Load WooCommerce Blocks integration early enough
+add_action('woocommerce_blocks_loaded', function() {
+    if (!class_exists('WC_Payment_Gateway')) {
+        return;
+    }
+    require_once FURATPAY_PLUGIN_PATH . 'includes/class-furatpay-api-handler.php';
+    require_once FURATPAY_PLUGIN_PATH . 'includes/class-furatpay-gateway.php';
+    require_once FURATPAY_PLUGIN_PATH . 'includes/blocks/class-furatpay-blocks.php';
+});
+
 // Initialize the gateway
 add_action('plugins_loaded', 'furatpay_init', 0);
 
