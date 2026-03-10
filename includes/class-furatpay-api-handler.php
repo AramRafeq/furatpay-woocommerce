@@ -102,16 +102,25 @@ class FuratPay_API_Handler
             $customer_code = 'wc_' . sanitize_key($order->get_billing_email());
             $invoice_data['customer_id'] = $customer_code;
 
-            // Provide customer object for auto-creation
+            $phone = $order->get_billing_phone();
+            if (empty($phone)) {
+                $phone = $order->get_shipping_phone();
+            }
+
+            $first_name = $order->get_billing_first_name();
+            $last_name = $order->get_billing_last_name();
+
             $invoice_data['customer'] = [
-                'name' => trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()),
+                'display_name' => trim($first_name . ' ' . $last_name),
                 'email' => $order->get_billing_email(),
-                'phone' => $order->get_billing_phone(),
-                'address' => $order->get_billing_address_1(),
-                'city' => $order->get_billing_city(),
-                'state' => $order->get_billing_state(),
-                'zip' => $order->get_billing_postcode(),
-                'country' => $order->get_billing_country(),
+                'phone_no' => $phone,
+                'type' => 'individual',
+                'details' => [
+                    'name' => trim($first_name . ' ' . $last_name),
+                    'firstname' => $first_name,
+                    'lastname' => $last_name,
+                    'email' => $order->get_billing_email(),
+                ],
             ];
         }
 
