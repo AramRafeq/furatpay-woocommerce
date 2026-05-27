@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -o '.\\\\{0,80\\\\}setActivePaymentMethod.\\\\{0,80\\\\}' /Users/aram/Desktop/work/personal/www/furat/wp-content/plugins/furatpay/build/blocks.js)"
+    ]
+  }
+}

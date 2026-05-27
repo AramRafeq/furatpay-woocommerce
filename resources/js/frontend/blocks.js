@@ -21,7 +21,6 @@ const PaymentServiceList = ({ services, selectedService, onSelect }) => {
                             value={service.id}
                             checked={selectedService === service.id}
                             onChange={() => onSelect(service.id)}
-                            required="required"
                             className="furatpay-service-radio"
                         />
                         {service.logo && (
@@ -280,26 +279,28 @@ registerPaymentMethod(options);
 
 })();
 
-// Critical: Ensure payment method is auto-selected when it's the only one
+// Auto-select FuratPay only when it is the sole available method.
+// WooCommerce Blocks already handles defaults when multiple gateways exist,
+// so forcing selection there would clobber the customer's choice.
 if (typeof wp !== 'undefined' && wp.data && wp.data.select) {
-    // Wait for DOM to be ready
     wp.domReady(() => {
-
-        // Try to get the checkout store
         try {
             const checkoutStore = wp.data.select('wc/store/checkout');
-            if (checkoutStore) {
-                const availableMethods = checkoutStore.getAvailablePaymentMethods();
-
-                // If furatpay is available, try to select it
-                if (availableMethods && availableMethods.includes(PAYMENT_METHOD_NAME)) {
-                    const dispatch = wp.data.dispatch('wc/store/payment');
-                    if (dispatch && dispatch.setActivePaymentMethod) {
-                        dispatch.setActivePaymentMethod(PAYMENT_METHOD_NAME);
-                    }
+            if (!checkoutStore) {
+                return;
+            }
+            const availableMethods = checkoutStore.getAvailablePaymentMethods();
+            if (
+                availableMethods &&
+                availableMethods.length === 1 &&
+                availableMethods.includes(PAYMENT_METHOD_NAME)
+            ) {
+                const dispatch = wp.data.dispatch('wc/store/payment');
+                if (dispatch && dispatch.setActivePaymentMethod) {
+                    dispatch.setActivePaymentMethod(PAYMENT_METHOD_NAME);
                 }
             }
         } catch (e) {
         }
     });
-} 
+}

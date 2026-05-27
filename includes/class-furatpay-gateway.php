@@ -211,7 +211,6 @@ class FuratPay_Gateway extends WC_Payment_Gateway
                     name="furatpay_service"
                     value="' . esc_attr($service['id']) . '"
                     ' . checked($is_checked, true, false) . '
-                    required="required"
                     class="furatpay-service-radio"
                 />';
                 

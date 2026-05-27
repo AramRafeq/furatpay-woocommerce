@@ -13,7 +13,6 @@ const PaymentServiceList = ({ services, selectedService, onSelect }) => {
                         value: service.id,
                         checked: selectedService === service.id,
                         onChange: () => onSelect(service.id),
-                        required: 'required',
                         className: 'furatpay-service-radio'
                     }),
                     service.logo && createElement('img', {
