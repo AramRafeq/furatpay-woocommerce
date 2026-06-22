@@ -104,25 +104,26 @@ get_header('shop');
             <?php else: ?>
                 <!-- Payment Status Container -->
                 <div id="furatpay-payment-status" class="furatpay-payment-section">
-                    <p><?php esc_html_e('Payment window has been opened in a new tab. Please complete your payment there.', 'furatpay'); ?></p>
+                    <p class="furatpay-status-desktop"><?php esc_html_e('Payment window has been opened in a new tab. Please complete your payment there.', 'furatpay'); ?></p>
+                    <p class="furatpay-status-mobile" style="display:none;"><?php esc_html_e('Taking you to the payment page...', 'furatpay'); ?></p>
                     <div class="furatpay-spinner"></div>
-                    <p style="font-size: 17px;font-weight:500;"><?php esc_html_e('This page will update automatically once payment is confirmed.', 'furatpay'); ?></p>
+                    <p class="furatpay-status-desktop" style="font-size: 17px;font-weight:500;"><?php esc_html_e('This page will update automatically once payment is confirmed.', 'furatpay'); ?></p>
                 </div>
 
-                <!-- Popup Blocked Message -->
+                <!-- Continue to Payment (shown when popup is blocked OR on mobile fallback) -->
                 <div id="furatpay-popup-blocked" class="furatpay-payment-section" style="display: none;">
-                    <p class="furatpay-warning"><?php esc_html_e('To proceed with your payment, please allow popups for this website.', 'furatpay'); ?></p>
-                    <button id="furatpay-retry-payment" class="button alt">
-                        <?php esc_html_e('Try Again', 'furatpay'); ?>
-                    </button>
+                    <p><?php esc_html_e('Tap the button below to continue to your payment page.', 'furatpay'); ?></p>
+                    <a href="<?php echo esc_url($payment_url); ?>" id="furatpay-retry-payment" class="button alt furatpay-payment-link">
+                        <?php esc_html_e('Continue to Payment', 'furatpay'); ?>
+                    </a>
                 </div>
 
                 <!-- Payment Retry Container -->
                 <div id="furatpay-payment-retry" class="furatpay-payment-section" style="display: none;">
-                    <p><?php esc_html_e('Payment window was closed. Click below to reopen the payment window:', 'furatpay'); ?></p>
-                    <button id="furatpay-reopen-payment" class="button alt">
-                        <?php esc_html_e('Reopen Payment Window', 'furatpay'); ?>
-                    </button>
+                    <p><?php esc_html_e('Tap the button below to continue your payment:', 'furatpay'); ?></p>
+                    <a href="<?php echo esc_url($payment_url); ?>" id="furatpay-reopen-payment" class="button alt furatpay-payment-link">
+                        <?php esc_html_e('Continue to Payment', 'furatpay'); ?>
+                    </a>
                 </div>
             <?php endif; ?>
         </div>
@@ -136,12 +137,36 @@ jQuery(function($) {
     var paymentUrl = <?php echo wp_json_encode($payment_url); ?>;
     var returnUrl = <?php echo wp_json_encode($return_url); ?>;
     var orderId = <?php echo wp_json_encode($order->get_id()); ?>;
+    var serverIsMobile = <?php echo wp_is_mobile() ? 'true' : 'false'; ?>;
     var checkInterval;
     var paymentWindow = null;
 
-    function openPaymentWindow() {
+    // Mobile browsers (iOS Safari, Android Chrome, in-app webviews) block window.open even on
+    // user gesture. Same-window navigation is reliable everywhere, so use that on mobile.
+    var isMobile = serverIsMobile ||
+        /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent) ||
+        (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
 
-        // First try to open a test window
+    // Same-window link on mobile, new tab on desktop.
+    $('.furatpay-payment-link').attr('target', isMobile ? '_self' : '_blank');
+
+    if (isMobile) {
+        $('.furatpay-status-desktop').hide();
+        $('.furatpay-status-mobile').show();
+    }
+
+    function openPaymentWindow() {
+        // FIB / FastPay show their QR inline; nothing to open.
+        if (fibData || (fastpayData && fastpayData.qrUrl)) {
+            return true;
+        }
+
+        if (isMobile) {
+            showSection('payment-status');
+            window.location.href = paymentUrl;
+            return true;
+        }
+
         var testWindow = window.open('about:blank', 'test');
         if (!testWindow || testWindow.closed) {
             showSection('popup-blocked');
@@ -149,26 +174,18 @@ jQuery(function($) {
         }
         testWindow.close();
 
-        // Skip window open for FIB or FastPay with QR code
-        if(!fibData && !(fastpayData && fastpayData.qrUrl)){
-            // Try to open actual payment window
-            paymentWindow = window.open(paymentUrl, 'FuratPayment');
-            if (!paymentWindow || paymentWindow.closed) {
-                showSection('popup-blocked');
-                return false;
-            }
-            paymentWindow.focus();
-            showSection('payment-status');
+        paymentWindow = window.open(paymentUrl, 'FuratPayment');
+        if (!paymentWindow || paymentWindow.closed) {
+            showSection('popup-blocked');
+            return false;
         }
-
+        paymentWindow.focus();
+        showSection('payment-status');
         return true;
     }
 
     function showSection(section) {
-        // Hide all sections first
         $('.furatpay-payment-section').hide();
-        
-        // Show the requested section
         switch(section) {
             case 'payment-status':
                 $('#furatpay-payment-status').show();
@@ -190,10 +207,9 @@ jQuery(function($) {
     }
 
     function checkPaymentStatus() {
-        // Check if payment window is closed and update UI
-        if (paymentWindow && paymentWindow.closed) {
+        // Only show "closed" retry UI on desktop where we control the popup handle.
+        if (!isMobile && paymentWindow && paymentWindow.closed) {
             showSection('payment-retry');
-            // Don't return - continue checking payment status
         }
 
         $.ajax({
@@ -213,21 +229,26 @@ jQuery(function($) {
                         clearInterval(checkInterval);
                         showSection('payment-retry');
                     }
-                    // If still pending, keep checking
                 }
             }
         });
     }
 
-    // Initial payment window open and start checking
     openPaymentWindow();
-    startPaymentCheck(); // Start checking immediately
+    // Polling makes sense for desktop popup flow. On mobile we navigate away,
+    // so the bank's redirect-back to the return URL is what closes the loop.
+    if (!isMobile) {
+        startPaymentCheck();
+    }
 
-    // Event Handlers
+    // On desktop, retry attempts to re-open the popup.
+    // On mobile, the anchor's default navigation handles it — let the browser do its thing.
     $('#furatpay-retry-payment, #furatpay-reopen-payment').on('click', function(e) {
+        if (isMobile) {
+            return; // allow normal link navigation
+        }
         e.preventDefault();
-        if (openPaymentWindow()) {
-            // Don't need to start checking again as it's already running
+        if (openPaymentWindow() && paymentWindow) {
             paymentWindow.focus();
         }
     });
